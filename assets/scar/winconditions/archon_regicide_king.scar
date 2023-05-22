@@ -1,0 +1,465 @@
+-----------------------------------------------------------------------
+-- Imported Scripts
+
+-- When you import a .scar file it will be initialized alongside your Game Mode .scar script. 
+-- You can also call functions from imported scripts directly. For example, cardinal.scar has a function called Player_SetCurrentAge() that allows you to set the age of a given player. To use this function, you first have to import cardinal.scar as is demonstrated below.
+-- To examine the below scripts, right-click on the import() function and select "Open Document"
+-----------------------------------------------------------------------
+
+-- Import Utility Scripts
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+-- UI support
+import("gameplay/event_cues.scar")
+import("util/bang_notifaction.scar")
+
+-----------------------------------------------------------------------
+-- Data
+-----------------------------------------------------------------------
+
+-- Global data table that can be referenced in script functions (e.g. _regicide_king.module = "Mod")
+_regicide_king = {
+	module = "RegicideKing",
+	options = {},
+	objective_title = "$11218487",
+	objective_requirement = 1,
+	icons = {
+		objective = "icons\\objectives\\objectives_leader",
+	},
+}
+
+-- Register the win condition (Some functions can be prepended with "Mod_" to be called automatically as part of the scripting framework)
+Core_RegisterModule(_regicide_king.module)
+
+-----------------------------------------------------------------------
+-- Scripting framework 
+-----------------------------------------------------------------------
+
+-- Called during load as part of the game setup sequence
+function RegicideKing_OnGameSetup()
+	
+end
+
+-- Called before initialization, preceding other module OnInit functions
+function RegicideKing_PreInit()
+	
+	-- Enable Tribute UI
+end
+
+-- Called on match initialization before handing control to the player
+function RegicideKing_OnInit()
+	
+	-- Store the local player so we can reference them later
+	--localPlayer = Core_GetPlayersTableEntry(Game_GetLocalPlayer())
+	
+	-- CALLING FUNCTIONS: The following calls the Mod_FindTownCenter() and Mod_SpawnBuilding() functions directly and immediately.
+	--Mod_FindTownCenter()
+	--Mod_SpawnBuilding()
+	--Mod_SpawnUnits()
+	
+	-- Activate the losing condition on King Death
+	Rule_AddGlobalEvent(RegicideKing_WinCondition_OnKingDeath, GE_EntityKilled)
+	Rule_AddGlobalEvent(RegicideKing_OnConstructionComplete, GE_ConstructionComplete)
+    Rule_AddGlobalEvent(RegicideKing_OnDamageReceived, GE_DamageReceived)
+	
+	for i, player in pairs(PLAYERS) do 
+		player.kingAttacks = {}
+		for j, p in pairs(PLAYERS) do 
+			player.kingAttacks[p.id.PlayerID] = {
+				damage_timer = string.format("_mod.king_attack_timer_%d", p.id.PlayerID),
+				id = p.id,
+			}
+		end
+	end
+	
+end
+
+-- Called after initialization is done when game is fading up from black
+function RegicideKing_Start()
+	if not _mod.enable_king_mode then 
+		return 
+	end
+	-- Setup the player's objective UI by calling the below function directly
+	RegicideKing_SetupObjective()
+	
+	if not _mod.enable_king_mode then 
+		return 
+	end
+	if not _mod.enable_nomad_start then
+		RegicideKing_FindTownCenter()
+	end
+end
+
+-- Called when Core_SetPlayerDefeated() is invoked. Signals that a player has been eliminated from play due to defeat.
+function RegicideKing_OnPlayerDefeated(player, reason)
+	
+end
+
+-- When a victory condition is met, a module must call Core_OnGameOver() in order to invoke this delegate and notify all modules that the match is about to end. Generally used for clean up (removal of rules, objectives, and UI elements specific to the module).
+function RegicideKing_OnGameOver()
+	
+	-- It is good practice to remove any Rules that were configured so they do not continue to run after the match has concluded
+	--Rule_RemoveGlobalEvent(Mod_OnConstructionComplete)
+
+end
+
+-----------------------------------------------------------------------
+-- Mod Functions
+-----------------------------------------------------------------------
+
+-- This function creates the objective UI that appears in the top-left corner of each player's screen
+function RegicideKing_SetupObjective()
+	
+	-- Check if an objective has not been created yet
+	if _regicide_king.objective == nil then 
+		
+		-- Create and store objective in the global table created at the start of this script
+		_regicide_king.objective = Obj_Create(localPlayer.id, _regicide_king.objective_title, Loc_Empty(), _regicide_king.icons.objective, "ConquestObjectiveTemplate", localPlayer.raceName, OT_Primary, 0, "conquestObj")		
+		
+		-- Sets the objective's state to incomplete
+		Obj_SetState(_regicide_king.objective, OS_Incomplete)
+		-- Sets the objective to visible so players can see it
+		Obj_SetVisible(_regicide_king.objective, true)
+		-- Sets the progress element of the objective to visible so players can see it
+		--Obj_SetProgressVisible(_regicide_king.objective, true)		
+		-- Sets the objective progress type to a counter
+		--Obj_SetCounterType(_regicide_king.objective, COUNTER_CountUpTo)
+		-- Set the starting objective progress to 1 because we spawn a House for the player in Mod_SpawnBuilding()
+		--Obj_SetCounterCount(_regicide_king.objective, 1)
+		-- Set the maximum objective progress
+		--Obj_SetCounterMax(_regicide_king.objective, _regicide_king.objective_requirement)
+		-- Set the objective progress bar percentage value
+		--Obj_SetProgress(_regicide_king.objective, 1 / _regicide_king.objective_requirement)
+	end
+end
+
+
+function RegicideKing_FindTownCenter()
+	
+	-- This is a for loop that does something for each player in the match.
+	-- PLAYERS is a table that contains all of the players in the match.
+	-- If there are two players it will run twice, if there are eight players it will run eight times, etc.
+	for i, player in pairs(PLAYERS) do
+		
+		-- Get the player's entities and place them into an ENTITY GROUP
+		local eg_player_entities = Player_GetEntities(player.id)
+		-- Filter out everything in the ENTITY GROUP except for the Town Center
+		EGroup_Filter(eg_player_entities, "town_center", FILTER_KEEP)
+		
+		if EGroup_Count(eg_player_entities) < 1 then 
+			return
+		end
+		-- Get the Town Center ENTITY by getting the first entry in the ENTITY GROUP we just filtered
+		local entity =  EGroup_GetEntityAt(eg_player_entities, 1)
+		-- Get the Town Center's ENTITY ID
+		-- Some functions require the ENTITY ID to perform an action on the ENTITY
+		local entity_id = Entity_GetID(entity) 
+		-- Get the Town Center's position
+		local position = Entity_GetPosition(entity)
+		
+		-- Store the player's Town Center information so it can be referenced later
+		player.town_center = {
+			entity = entity,
+			entity_id = entity_id,
+			position = position,
+		}
+		local pos = Util_GetOffsetPosition(position, 15, 10)
+		RegicideKing_SpawnUnits(player, pos, true)
+		-- Reveal Town Center locations for the first 30 seconds of the match
+		--FOW_RevealArea(player.town_center.position, 40, 30)
+		
+	end
+end
+
+
+
+function RegicideKing_OnConstructionComplete(context)
+	Rule_AddOneShot(RegicideKing_PostConstructionComplete, 0.25, context)
+end
+
+function RegicideKing_PostConstructionComplete(context, data)
+	if not _mod.enable_king_mode then 
+		return 
+	end
+	if not _mod.enable_nomad_start then
+		return
+	end
+	if data.player == nil or data.entity == nil then
+		return
+	end	
+	-- Get player constructing
+	local player = Core_GetPlayersTableEntry(data.player)
+	if not Player_IsAlive(player.id) then
+		return
+	end
+	
+	local entity = data.entity
+	local entity_id = Entity_GetID(entity)  
+	-- If constructed entity is a Landmark or Capital
+	if (Conquest_IsACapital(entity)) and player.hadKings == nil then
+		player.hadKings = 1
+		local pos = Util_GetOffsetPosition(Entity_GetPosition(entity), 15, 10)
+		RegicideKing_SpawnUnits(player, pos, false)
+	end
+end
+
+
+
+
+-- This function spawns a group of Spearmen next each player's Town Center
+function RegicideKing_SpawnUnits(player, position, start)
+	-- 如果不是开局部署的，就需要区分文武
+	if not start and player.role == ROLE_CIVIL then 
+		player = Archon_GetMyTeammate(player.id)
+	end
+	
+	if player.role == ROLE_CIVIL then 
+		return
+	end
+	
+	
+	-- This is a for loop that does something for each player in the match.
+	-- PLAYERS is a table that contains all of the players in the match.
+	-- If there are two players it will run twice, if there are eight players it will run eight times, etc.
+
+		
+	-- Get player's Civilization name
+	local player_civ = Player_GetRaceName(player.id)
+	
+	-- Create a local variable for the Spearman BLUEPRINT (BP) we are going to find below
+	-- The local variable needs to be established before the below IF statement so it can be referenced outside of it within the function
+	local sbp_spearman
+	
+	-- This checks which Civilization the player is using and gets the appropriate BLUEPRINTS for the Spearmen unit
+	-- BLUEPRINTS are the instructions needed to create a SQUAD, ENTITY, or UPGRADE
+	if player_civ == "english" then
+		
+		-- Get the Age 4 English Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_eng")
+		
+	elseif player_civ == "chinese" then
+		
+		-- Get the Age 4 Chinese Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_chi")
+		
+	elseif player_civ == "french" then
+		
+		-- Get the Age 4 French Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_fre")
+		
+	elseif player_civ == "hre" then
+		
+		-- Get the Age 4 HRE Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_hre")
+		
+	elseif player_civ == "mongol" then
+		
+		-- Get the Age 4 Mongol Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_mon")
+		
+	elseif player_civ == "rus" then
+		
+		-- Get the Age 4 Rus Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_rus")
+		
+	elseif player_civ == "sultanate" then
+		
+		-- Get the Age 4 Delhi Sultanate Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_sul")
+		
+	elseif player_civ == "abbasid" then
+		
+		-- Get the Age 4 Abbasid Spearman Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_abb")
+		
+	elseif player_civ == "malian" then
+		
+		-- Get the Age  malian king Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_mal")
+		
+	elseif player_civ == "ottoman" then
+		
+		-- Get the Age  ottoman king Blueprint
+		sbp_spearman = BP_GetSquadBlueprint("unit_king_1_ott")
+		
+	end	
+
+
+    local Bang_StartingKing_Buff = function(modifier, value)
+		Modifier_ApplyToPlayer(Modifier_Create(MAT_EntityType, modifier, MUT_Addition, false, value, sbp_spearman), player.id, 0.0)
+	end
+	local Bang_StartingKing_Nerf = function(modifier, value, ability)
+		Modifier_ApplyToPlayer(Modifier_Create(MAT_Ability, modifier, MUT_Addition, false, value, ability), player.id, 0.0)
+	end
+	
+    
+	
+	-- Create a unique sgroup name for this player's spearmen units
+	local sgroup_name = "sg_player_spearmen_" .. tostring(player.id)
+	-- Create a SQUAD GROUP (SGROUP) that will act as a container for the spawned SQUADS
+	-- SGROUPS are useful for controlling all of the spawned units at once via scripted commands.
+	local sg_player_spearmen = SGroup_CreateIfNotFound(sgroup_name)
+	
+	-- This function spawns 16 Spearmen of the player's Civilization near their starting Town Center
+	-- You can hover over the function to view the parameters it requires. From left to right:
+	-- player = The player that the spawned units will belong to.
+	-- sgroup = The SQUAD GROUP (SG) that the units will be spawned into.
+	-- units = A table of data that contains the SQUAD BLUEPRINT (SBP) and the number of SQUADS (aka units) to spawn.
+	-- spawn = The location the units will be spawned at.
+	UnitEntry_DeploySquads(player.id, sg_player_spearmen, {{sbp = sbp_spearman, numSquads = 1 }}, position)
+
+	-- Get a position offset from the Town Center position
+	--local move_position = Util_GetOffsetPosition(player.town_center.position, 20, 15)
+	-- Command the SGROUP to enter into a formation
+	--Cmd_Ability(sg_player_spearmen, BP_GetAbilityBlueprint("core_formation_line"))
+	-- Command the SGROUP to Move to that position
+	--Cmd_FormationMove(sg_player_spearmen, move_position, false)
+	
+    local sid = SGroup_GetSquadAt(sg_player_spearmen, 1)
+	local abp = BP_GetAbilityBlueprint("leader_attack_speed_activated_lowcd")
+	Squad_AddAbility(sid, abp)
+	Bang_StartingKing_Nerf("ability_recharge_time_modifier", 105, abp)
+	--abp = BP_GetAbilityBlueprint("leader_healing_activated_lowcd")
+	--Squad_AddAbility(sid, abp)
+	--Bang_StartingKing_Nerf("ability_recharge_time_modifier", 255, abp)	
+    abp = BP_GetAbilityBlueprint("leader_damage_activated")
+	Squad_AddAbility(sid, abp)
+	Bang_StartingKing_Nerf("ability_recharge_time_modifier", 75, abp)	
+	--abp = BP_GetAbilityBlueprint("leader_production_mon_activated")
+	--Squad_AddAbility(sid, abp)
+	--Bang_StartingKing_Nerf("ability_recharge_time_modifier", 225, abp)
+	
+	abp = BP_GetAbilityBlueprint("leader_move_speed_activated")
+	Squad_AddAbility(sid, abp)
+	Bang_StartingKing_Nerf("ability_recharge_time_modifier", 75, abp)
+	
+	--abp = BP_GetAbilityBlueprint("regicide_king_treason")
+	--Squad_AddAbility(sid, abp)
+	
+			
+	Squad_RemoveAbility(sid, BP_GetAbilityBlueprint("core_unit_death"))
+	-- Aura +4 Armor +50% Damage
+	--Squad_AddAbility(sid, BP_GetAbilityBlueprint("general_aura_armor"))
+	
+	Bang_StartingKing_Buff("armor_scalar_for_ranged_damage", 5)
+	Bang_StartingKing_Buff("armor_scalar_for_melee_damage", 5)
+	Bang_StartingKing_Buff("speed_maximum_modifier", 3.5)
+	Bang_StartingKing_Buff("health_maximum_modifier", 800)
+	Bang_StartingKing_Buff("sight_radius_modifier", 10)
+
+end
+
+
+function RegicideKing_OnDamageReceived(context)
+	if not _mod.enable_king_mode then 
+		return 
+	end
+	-- Ignore nils and world owned entities
+	-- or World_OwnsEntity(context.victim)
+	if context == nil  or context.victim == nil  then
+		return 
+	end
+	if not Entity_IsOfType(context.victim, "King") then
+		return
+	end
+	
+	if context.attacker then
+         
+		if not World_OwnsEntity(context.victim) and not World_OwnsEntity(context.attacker) then 
+			
+			-- Exclude scuttling of incomplete buildings		
+			--if not Entity_IsBuilding(context.victim) or Entity_GetBuildingProgress(context.victim) >= 1.0 then
+			
+			-- Get building ID and owner
+			local id = Entity_GetID(context.victim)
+			local owner = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.victim))
+			
+
+			
+			if not Player_IsAlive(owner.id) then
+				return;
+			end
+			
+			
+			-- If no cue cooldown timer is active, Landmark owner is not eliminated, and local player is not eliminated
+
+			-- Get damaged cue data
+			
+			-- Store last attacker in landmark data
+			local last_attacker = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.attacker))
+			
+			local attackId = last_attacker.id.PlayerID
+			local show_cue = not Timer_Exists(owner.kingAttacks[attackId].damage_timer) or Timer_GetRemaining(owner.kingAttacks[attackId].damage_timer) == 0.0		
+			Timer_Start(owner.kingAttacks[attackId].damage_timer, 60)
+			
+			if last_attacker.id == owner.id then
+				return;
+			end
+			
+			if show_cue then
+				-- If attacking player is local player
+				-- if last_attacker.isLocal then
+				-- If local player's ally owns Landmark
+				-- else
+				
+				-- Create cue title
+				if localPlayer.id == owner.id then 
+					Bang_NotifactionCore(localPlayer, "$ca89a0a6a8c146e5a17b0a68baf18e49:46")
+				else
+					local cue_title = Loc_FormatText("$ca89a0a6a8c146e5a17b0a68baf18e49:47", last_attacker.playerName, owner.playerName)	--"Enemy attacking %1PLAYER_NAME%'s Landmark"
+				
+					--Notify local player that Landmark is under attack
+					UI_CreateEventCue(cue_title, nil, "", "", "sfx_ui_event_queue_high_priority_play")
+				end
+				-- end
+				-- end
+			end
+			
+		end
+	end
+end
+
+
+
+
+function RegicideKing_WinCondition_OnKingDeath(context)
+	if not _mod.enable_king_mode then 
+		return 
+	end
+	if Entity_IsOfType(context.victim, "King") then
+		if context.victimOwner ~= nil then
+			local owner = Core_GetPlayersTableEntry(context.victimOwner)
+			if owner.role ~= nil then 
+				local teammate  = Archon_GetMyTeammate(owner.id)
+				Core_SetPlayerDefeated(teammate.id, Annihilation_LoserPresentation, WR_ANNIHILATION)
+			end
+			Core_SetPlayerDefeated(context.victimOwner, Annihilation_LoserPresentation, WR_ANNIHILATION)
+		end
+		-- 如果攻击者是玩家，则需要奖励
+		if context.killer ~= nil and not World_OwnsEntity(context.killer) then
+			local last_attacker = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.killer))
+			local player = last_attacker
+			if player.role == ROLE_GENERAL then 
+				player = Archon_GetMyTeammate(player.id)
+			end
+			Modifier_ApplyToPlayer(Modifier_Create(MAT_Player, "max_personnel_cap_player_modifier", MUT_Addition, false, 25, ""), player.id, 0)
+			if Player_GetRaceName(player.id) == "mongol" then
+				Player_SetPopCapOverride(player.id, Player_GetMaxPopulationCap(player.id, CT_Personnel))
+			end
+			local cue_title
+			if not World_OwnsEntity(context.victim) then
+				local owner = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.victim))
+				cue_title = Loc_FormatText("$ca89a0a6a8c146e5a17b0a68baf18e49:48", last_attacker.playerName, owner.playerName)	--"Enemy attacking %1PLAYER_NAME%'s Landmark"
+			else
+			    cue_title = Loc_FormatText("$ca89a0a6a8c146e5a17b0a68baf18e49:49", last_attacker.playerName)	--"Enemy attacking %1PLAYER_NAME%'s Landmark"
+			end
+			
+			--Notify local player that Landmark is under attack
+			UI_CreateEventCue(cue_title, nil, "", "", "sfx_ui_event_queue_high_priority_play")
+		end
+	end
+	
+end
+

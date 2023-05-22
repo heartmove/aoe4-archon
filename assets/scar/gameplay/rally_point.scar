@@ -1,0 +1,79 @@
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+Core_RegisterModule("RallyPoint")
+
+_rally_point = {
+	
+}
+
+function RallyPoint_OnInit()
+	Rule_AddGlobalEvent(RallyPoint_ListenForRallyPoint, GE_EntityCommandIssued)
+	Network_RegisterEvent("RallyPoint_ChangeNtw")
+end
+
+
+
+function RallyPoint_Add(entityId, position)
+  _rally_point[entityId] = position
+end
+
+function RallyPoint_Get(entity)
+	local eid = Entity_GetID(entity)
+	if eid == nil then 
+		return nil
+	end
+  return _rally_point[eid]
+end
+
+
+function RallyPoint_Start()
+	
+end
+
+
+function RallyPoint_OnGameOver()
+	Network_RemoveEvent("RallyPoint_ChangeNtw")
+end
+
+
+function RallyPoint_ChangeNtw(playerID, data)
+	local chunks = string.split(data ,"|")
+	local entityId = chunks[1]
+	local pos = Util_ScarPos(tonumber(chunks[2]), tonumber(chunks[4]), tonumber(chunks[3]))
+	RallyPoint_Add(tonumber(entityId), pos)
+end
+
+
+function RallyPoint_ListenForRallyPoint(context)
+	if context.command == CMD_RallyPoint then
+		print("..RallyPoint_ListenForRallyPoint.")
+		-- context.entity
+		-- context.target  target 0xD8000004EE8FD022 Table (SCARPOS)
+		
+		local entity = context.entity
+		local flag = Archon_IsMiliratyBuildings(entity)
+		local target = context.target
+		if flag and _mod.enable_civil_army then 
+			local pos = nil
+			if scartype(target) == ST_SCARPOS then
+				-- RallyPoint_Add(entity, target)
+				pos = target
+			elseif scartype(target) == ST_ENTITY then 
+				pos = Entity_GetPosition(target)
+				--RallyPoint_Add(entity, target)
+			elseif scartype(target) == ST_SQUAD then
+				target = Squad_GetPosition(target)
+				--RallyPoint_Add(entity, target)
+				pos = target
+			end
+			if pos == nil then 
+				return
+			end
+			local data = string.format("%s|%s|%s|%s", Entity_GetID(entity), pos.x, pos.y, pos.z)
+			Network_CallEvent("RallyPoint_ChangeNtw", data)
+		end
+		
+	end
+end

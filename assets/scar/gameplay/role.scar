@@ -1,0 +1,428 @@
+
+_role = {
+	settings = {
+		
+	},
+	ai_team_no_role = false,
+	single_team_no_role = false,
+}
+
+function Archon_GetTeams()
+	return _mod.teams
+end
+
+function Archon_GetMyTeam(playerId)
+	local player = Core_GetPlayersTableEntry(playerId)
+	return _mod.roles[player.team.index]
+end
+
+-- 获得队友
+function Archon_GetMyTeammate(playerId)
+	local team = Archon_GetMyTeam(playerId)
+	if team == nil then 
+		return nil
+	end
+	for i, player in pairs(team) do
+		if player.id ~= playerId then 
+			return player
+		end
+	end
+	return nil
+	
+end
+
+
+
+-- 是否是文官的颜色
+function Archon_IsCivil(playerid)
+	
+	local colour = Player_GetUIColour(playerid)
+	
+	if  colour.r == 24 and colour.g == 140 and colour.b == 255  then
+		return true
+	end
+	if  colour.r == 235 and colour.g == 211 and colour.b == 0  then
+		return true
+	end
+	if  colour.r == 255 and colour.g == 59 and colour.b == 48  then
+		return true
+	end
+	if  colour.r == 0 and colour.g == 199 and colour.b == 0  then
+		return true
+	end
+	
+	return false
+end
+
+
+
+
+-- 初始化角色
+function Archon_SelectRole()
+	for i, player in pairs(PLAYERS) do
+		local teamIndex = player.team.index
+		_mod.slot_player[player.slotIndex] = player
+		if _mod.teams[teamIndex] == nil then 
+			_mod.teams[teamIndex] = {
+				
+			}
+		end
+		table.insert(_mod.teams[teamIndex], player)
+		UI_SetAlliedBandBoxSelection(true)
+		--[[
+		local bps = BP_GetEntityBlueprintsWithType("scar_villager")
+		for _, ebp in pairs(bps) do 
+			local modifier_value = 8
+			Modifier_ApplyToPlayer(Modifier_Create(MAT_EntityType, "resource_entity_harvest_rate_food", MUT_Multiplication, false, modifier_value, ebp), player.id, 0.0)
+			Modifier_ApplyToPlayer(Modifier_Create(MAT_EntityType, "resource_entity_harvest_rate_wood", MUT_Multiplication, false, modifier_value, ebp), player.id, 0.0)
+			Modifier_ApplyToPlayer(Modifier_Create(MAT_EntityType, "resource_entity_harvest_rate_gold", MUT_Multiplication, false, modifier_value, ebp), player.id, 0.0)
+			Modifier_ApplyToPlayer(Modifier_Create(MAT_EntityType, "resource_entity_harvest_rate_stone", MUT_Multiplication, false, modifier_value, ebp), player.id, 0.0)
+		end
+		--]]
+	end
+	
+	Archon_SelectRoleBySlot()
+	
+	--[[
+	if _mod.enble_color_role then
+		Archon_SelectRoleByColour()
+	else
+		Archon_SelectRoleBySlot()
+	end
+    --]]
+	
+end
+
+function Archon_ResetTeam()
+	local teamIndexes = {}
+	for i, team in pairs(TEAMS) do
+		teamIndexes[team.index] = #team.players
+	end
+	
+	for i, team in pairs(TEAMS) do 
+		local teamIndex = team.index
+		if #team.players > 2 then 
+			-- 当队伍大于2时,逐一分配
+			for k = 1, #team.players - 2 do 
+				-- 待分配的玩家
+				local player = team.players[#team.players]
+				-- 从队伍里移除此玩家
+				table.remove(team.players, #team.players)
+				local assignFlag = false
+				for j, ti in pairs(teamIndexes) do 
+					-- 如果人数为1，则可以分配给此队（单人队伍无角色除外）
+					if ti == 1 then 
+						
+						assignFlag = true 					
+						--设置队伍数量
+						teamIndexes[j] = ti+1
+						break 
+					end
+				end
+				
+				-- 如果没有分配，就需要创建新队伍
+				if not assignFlag then 
+					
+					
+				end
+			end
+		end
+	end
+end
+
+function Archon_SelectRoleByColour()
+	for i, player in pairs(PLAYERS) do
+		if _mod.roles[player.team.index] == nil then
+			_mod.roles[player.team.index] = {}
+		end
+		if Archon_IsCivil(player.id) then 
+			player.role = ROLE_CIVIL
+		else 
+			player.role = ROLE_GENERAL
+		end
+		_mod.roles[player.team.index][player.role] = player
+	end
+	for i, team in pairs(_mod.roles) do
+		-- 如果只有一个玩家，则该队全随机
+		local count = 0
+		for _ in pairs(team) do count = count + 1 end
+		if count == 1 then 
+			local rteam = Core_GetTeamsEntryFromIndex(i)
+			Archon_selectRoleBySlotInTeam(rteam.players)
+		end
+	end
+end
+
+function Archon_SelectRoleBySlot()
+	for i,team in pairs(_mod.teams) do 
+		Archon_selectRoleBySlotInTeam(team)
+	end
+end
+
+function Archon_selectRoleBySlotInTeam(team)
+	if Role_IsTeamNoRole(team) then 
+		return
+	end
+	local teamIndex = 0
+	local minSlot = 9999999
+	for j, player in pairs(team) do 
+		if minSlot > player.slotIndex then 
+			minSlot = player.slotIndex
+			teamIndex = player.team.index
+		end
+	end
+	local maxSlot = -1
+	for j, player in pairs(team) do 
+		if minSlot ~= player.slotIndex then 
+			maxSlot = player.slotIndex
+		end
+	end
+	
+	local selectType = Role_GetSettingsVal(teamIndex)
+	if selectType == 0 then
+		selectType = World_GetRand(1, 2)
+	end
+	
+	local civil_slot = minSlot
+	local general_slot = maxSlot
+	-- 文官
+	if selectType == 2 then 
+		civil_slot = maxSlot
+		general_slot = minSlot
+	end
+	
+	local civil = _mod.slot_player[civil_slot]
+	local general = _mod.slot_player[general_slot]
+	civil.role = ROLE_CIVIL
+	-- 将军
+	general.role = ROLE_GENERAL
+	_mod.roles[civil.team.index] = {}
+	_mod.roles[civil.team.index][ROLE_CIVIL] = civil
+	_mod.roles[civil.team.index][ROLE_GENERAL] = general
+end
+
+
+function Role_AddSettings(index, val)
+	_role.settings[index] = val
+end
+
+function Role_GetSettingsVal(index)	
+	return _role.settings[index]
+end
+
+function Role_SetAiTeamNoRole(val)
+	_role.ai_team_no_role = val
+end
+
+function Role_IsAiTeamNoRole()
+	return _role.ai_team_no_role
+end
+
+function Role_SetSingleTeamNoRole(val)
+	_role.single_team_no_role = val
+end
+
+-- 单人队伍没有
+function Role_IsSingleTeamNoRole()
+	return _role.single_team_no_role
+end
+
+-- 队伍是否不需要设置角色
+function Role_IsTeamNoRole(team)
+	if Role_IsSingleTeamNoRole() and #team == 1 then 
+		return true 
+	end
+	if Role_IsAiTeamNoRole() then 
+		local hadHuman = false
+		for i, player in pairs(team) do 
+			if player.isHuman then 
+				hadHuman = true 
+				break
+			end
+		end
+		return not hadHuman 
+	end
+	
+	return false
+end
+
+
+-- 初始化单位和建筑归属
+function Archon_ChangeEntities()
+	
+	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(localPlayer.id, CT_Personnel))
+	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(localPlayer.id, CT_Personnel))
+	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(localPlayer.id, CT_Personnel))
+	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(localPlayer.id, CT_Personnel))
+	
+	-- 如果是将军，并且开启了唯一民族选项，则删除将军的所有单位和建筑（侦察兵除外）
+	if _mod.enable_single_race then 
+		for i,player in pairs(PLAYERS) do 
+			if player.role == ROLE_GENERAL  then 
+				SGroup_DestroyAllSquads(Player_GetSquads(player.id))
+				EGroup_DestroyAllEntities(Player_GetEntities(player.id))
+			end
+		end
+	end
+	for i,team in pairs(_mod.teams) do 
+		for j, player in pairs(team) do 
+			if player.role ~= nil then 
+				local teammate = Archon_GetMyTeammate(player.id)
+				if player.role == ROLE_CIVIL then 
+					--是否保留武将资源
+					if not _mod.keep_general_resource then 
+						Player_SetResource(teammate.id, RT_Food, 0)
+						Player_SetResource(teammate.id, RT_Gold, 0)
+						Player_SetResource(teammate.id, RT_Wood, 0)
+						Player_SetResource(teammate.id, RT_Stone, 0)
+					end
+					
+					-- 文官是人类玩家才将文官的侦察兵给武官
+					if player.isHuman then 
+						-- 这个时候要给队友分配侦察兵等军事单位
+						local eg = Player_GetSquadsFromType(player.id, "scout")
+						-- 罗斯自己的侦察兵不分配
+						if eg ~= nil and Player_GetRaceName(player.id) ~= "rus" then
+							--TODO
+							SGroup_SetPlayerOwner(eg, teammate.id)
+						end
+					else 
+						-- 文官是AI，则单独给侦察兵到AI
+						local tcEg = Player_GetAllEntitiesFromType(player.id, "town_center")
+						local tc = EGroup_GetEntityAt(tcEg, 1)
+						Role_SpawnScout(player, Util_GetOffsetPosition(Entity_GetPosition(tc), 11, 11))
+					end
+					
+					eg = Player_GetSquadsFromType(player.id, "khan")
+					if eg ~= nil then
+						--TODO
+						SGroup_SetPlayerOwner(eg, teammate.id)
+					end
+					
+					if Player_GetRaceName(player.id) == "mongol"  then 
+						Player_SetStateModelBool(player.id, "khan_spawning_enabled", false)
+					end
+					
+					
+					
+				else 
+					-- 没有开启单一民族时才需要转移单位和建筑的控制权
+					if not _mod.enable_single_race then
+						local eg = Player_GetSquadsFromType(player.id, "worker")
+						--TODO
+						SGroup_SetPlayerOwner(eg, teammate.id)
+						eg = Player_GetSquadsFromType(player.id, "monk")
+						if eg ~= nil then
+							--TODO
+							SGroup_SetPlayerOwner(eg, teammate.id)
+						end
+	
+						eg = Player_GetAllEntitiesFromType(player.id, "building")
+						EGroup_SetPlayerOwner(eg, teammate.id)
+					end
+				end
+			end
+		end
+	end
+	--Player_SetPopCapOverride(Game_GetLocalPlayer(), 20)
+
+	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(localPlayer.id, CT_Personnel))
+	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(localPlayer.id, CT_Personnel))
+	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(localPlayer.id, CT_Personnel))
+	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(localPlayer.id, CT_Personnel))
+	--print("Player_GetTotalPopulation:" .. Player_GetTotalPopulation(localPlayer.id))
+	--Player_GetCurrentPopulationCap(localPlayer.id, CT_Personnel)
+	--print(Player_GetCurrentPopulationCap(Game_GetLocalPlayer(), CT_Personnel))
+	
+
+	-- For every player
+	for _, player in pairs(PLAYERS) do
+		
+		-- Track Landmarks
+		player.landmarks = {}
+		
+		-- Get all player entities
+		local eg_player_landmarks = Player_GetAllEntities(player.id)
+		-- Filter out all entities except for capital TC's and Landmarks
+		-- Currently packed Mongol TC capitals are the only capital TC's missing the landmark tag. This should probably be fixed in the future.
+		EGroup_Filter(eg_player_landmarks, {"landmark", "town_center_capital"}, FILTER_KEEP)
+		
+		local _TrackLandmark = function(gid, idx, eid)
+			
+			-- Get entity ID
+			local entity_id = Entity_GetID(eid)
+			
+			-- If entity is a Landmark or Capital
+			if (Conquest_IsALandmark(eid) or Conquest_IsACapital(eid)) and player.landmarks[entity_id] == nil  then
+				
+				-- Track entity IDs since Mongol structures trigger a GE_ConstructionComplete event when unpacked as well as when constructed.
+				player.landmarks[entity_id] = {
+					entity = eid,
+					last_health = Entity_GetHealth(eid),
+					damage_timer = string.format("conquest.landmark_damage_timer_%d", entity_id),
+					landmark_active = Entity_IsValid(entity_id) and Entity_GetStateModelBool(eid, "landmark_active"),
+					is_a_capital = Conquest_IsACapital(eid),
+					last_attacker = nil
+				}
+				
+			end		
+		end
+		
+		-- For every Landmark found
+		EGroup_ForEach(eg_player_landmarks, _TrackLandmark)
+	end
+end
+
+
+
+
+function Role_SpawnScout(player, pos) 
+	player_civ = Player_GetRaceName(player.id)
+	
+	local teammate = Archon_GetMyTeammate(player.id)
+	if teammate == nil then 
+		return 
+	end
+	
+	local assignPlayer = teammate
+	
+	-- Get Villager BP based on civ
+	local sbp_scout
+	
+	if player_civ == "english" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_eng")
+		
+	elseif player_civ == "chinese" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_chi")
+		
+	elseif player_civ == "malian" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_mal")
+		
+	elseif player_civ == "ottoman" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_ott")	
+		
+	elseif player_civ == "french" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_fre")
+		
+	elseif player_civ == "hre" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_hre")
+		
+	elseif player_civ == "mongol" then
+		sbp_scout = BP_GetSquadBlueprint("unit_khan_1_mon")
+		
+	elseif player_civ == "rus" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_rus")
+		
+	elseif player_civ == "sultanate" then
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_sul")
+		
+	elseif player_civ == "abbasid" then		
+		sbp_scout = BP_GetSquadBlueprint("unit_scout_1_abb")
+	end
+	
+	local spawn_pos = pos
+	-- Create villager squad and spawn at random location
+	local sg_scout = SGroup_CreateIfNotFound("sg_scout" .. tostring(player.id))
+	UnitEntry_DeploySquads(assignPlayer.id, sg_scout, {{sbp = sbp_scout, numSquads = 1 }}, spawn_pos)
+		
+end

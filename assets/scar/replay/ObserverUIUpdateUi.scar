@@ -1,0 +1,327 @@
+_ObserverUIDataContext = ObserverUiDataContext
+
+ObserverUi_ResourceMapping = {
+	food = RT_Food,
+	wood = RT_Wood,
+	gold = RT_Gold,
+	stone = RT_Stone
+}
+
+function AdaptIconPathForXaml(iconPath)
+	return string.format("pack://application:,,,/WPFGUI;component/%s.png", string.gsub(iconPath, "\\", "/" ))
+end
+
+_AgeIconsForAnimation = {
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_1"), 
+		[true] = AdaptIconPathForXaml("icons/hud/age/age_display_afford_1")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_2"),
+		[true] = AdaptIconPathForXaml("icons/hud/age/age_display_afford_2")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_3"),
+		[true] = AdaptIconPathForXaml("icons/hud/age/age_display_afford_3")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_4"),
+		[true] = AdaptIconPathForXaml("icons/hud/age/age_display_afford_4")}
+}
+
+_AgeIcons = {
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_1"), 
+		[true] = AdaptIconPathForXaml("icons/races/common/abilities/age_1")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_2"),
+		[true] = AdaptIconPathForXaml("icons/races/common/abilities/age_2")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_3"),
+		[true] = AdaptIconPathForXaml("icons/races/common/abilities/age_3")},
+	{	[false] = AdaptIconPathForXaml("icons/hud/age/age_display_persistent_4"),
+		[true] = AdaptIconPathForXaml("icons/races/common/abilities/age_4")}
+}
+
+_RaceImage = {
+	abbasid = AdaptIconPathForXaml("images/civ_flags/flag_abbasid"),
+	chinese = AdaptIconPathForXaml("images/civ_flags/flag_chinese"),
+	english = AdaptIconPathForXaml("images/civ_flags/flag_english"),
+	french = AdaptIconPathForXaml("images/civ_flags/flag_french"),
+	hre = AdaptIconPathForXaml("images/civ_flags/flag_hre"),
+	mongol = AdaptIconPathForXaml("images/civ_flags/flag_mongol"),
+	rus = AdaptIconPathForXaml("images/civ_flags/flag_rus"),
+	sultanate = AdaptIconPathForXaml("images/civ_flags/flag_sultanates"),
+	malian = AdaptIconPathForXaml("images/civ_flags/flag_malian"),
+	ottoman = AdaptIconPathForXaml("images/civ_flags/flag_ottoman")
+} 
+
+function InitializeObserverUIDataContext()
+	local dataContextMappingsPlayersByIndex = ObserverUIDataContextMappings.PlayersByIndex
+	local observerUIDataContext = _ObserverUIDataContext
+	
+	for index, playerTable in pairs(PLAYERS) do
+		local raceName = Player_GetRaceName(playerTable.id)
+		
+		local data = dataContextMappingsPlayersByIndex[index]
+		data.name = string.format("[%s] %s", playerTable.team.index, playerTable.playerName.LocString)
+		data.color = UI_GetColourAsString(Player_GetUIColour(playerTable.id))
+			
+		data.civIcon = AdaptIconPathForXaml(World_GetRaceIcon(playerTable.race))
+		data.civImage = _RaceImage[raceName]
+		
+		data.IsEliminated = false
+		data.ageIcon = ""
+		data.ageIconForAnimation = ""
+		data.isUpping = false
+		data.ageUpProgress = 0.0
+		data.upAt = 0
+		data.upName = ""
+		data.upIcon = ""
+		data.populationVsMaximumPopulation = ""
+		data.workerPopulation = 0
+		data.idleWorkerPopulation = 0
+		data.allMilitaryPopulation = 0
+		data.militaryPopulation = 0
+		data.siegePopulation = 0
+		data.relics = 0
+		data.relicsDeposited = 0
+		data.upgradesQueued = {}
+		data.units = {}
+		data.unitsWorkers = {}
+		
+		local resources = {}
+		for key,enum in pairs(ObserverUi_ResourceMapping) do
+			resources[key] = {amount=0, AmountFormatted="", workers=0, income="", icon=AdaptIconPathForXaml("icons/resources/resource_"..key.."_icon")}
+		end
+		
+		data.resources = resources
+	end
+end
+
+function ToggleMessages()
+	ObserverUI_Settings.ShowMessages = not ObserverUI_Settings.ShowMessages
+	ObserverUiDataContext.ShowMessages = ObserverUI_Settings.ShowMessages
+	UpdateObserverUIDataContext()
+end
+
+function ToggleArmy()
+	ObserverUI_Settings.ShowArmy = not ObserverUI_Settings.ShowArmy
+	UpdateObserverUIDataContext()
+end
+
+function UpdateObserverUIDataContext()
+	for index=1, #PLAYERS do
+		local playerTable = ObserverUIDataContextMappings.PlayersByIndex[index]
+		local player = PLAYERS[index].id
+		
+		playerTable.IsEliminated = PLAYERS[index].isEliminated
+		
+		local age = Player_GetCurrentAge(player)
+		UpdateIsUpping(playerTable, player, age)
+		playerTable.ageIcon = _AgeIcons[age][playerTable.isUpping]
+		playerTable.ageIconForAnimation = _AgeIconsForAnimation[age][playerTable.isUpping]
+		
+		UpdateResources(playerTable, player)
+		
+		playerTable.populationVsMaximumPopulation = GetPopulationVsMaximumPopulation(player)
+		
+		UpdatePopulationComposition(playerTable, player)
+		UpdateRelics(playerTable, player)
+		UpdateUnitsAndQueuedStuff(playerTable, player, PLAYERS[index].race)
+	end
+end
+
+function UpdateResources(t, player)
+	local resources = Player_GetResources(player)
+	
+	local tResources = t.resources
+	for key,enum in pairs(ObserverUi_ResourceMapping) do
+		local amount = resources[key]
+		tResources[key].amount = amount
+		tResources[key].workers = Player_GetStateModelInt(player, "num_"..key.."_gatherers")
+		tResources[key].income = tostring(math.floor(Player_GetResourceRate(player, enum)*60)).."/min"
+		if amount >= 10000 then
+			tResources[key].AmountFormatted = tostring(math.floor(amount/1000 + 0.5)).."k"
+		else
+			tResources[key].AmountFormatted = tostring(math.floor(amount))
+		end
+	end
+end
+
+function GetPopulationVsMaximumPopulation(player)
+	local getCurrentPopulationCap = Player_GetCurrentPopulationCap
+	if not getCurrentPopulationCap then
+		getCurrentPopulationCap = Player_GetMaxPopulation
+	end
+	
+	local maxPop = getCurrentPopulationCap(player, CT_Personnel)
+	local curPop = Player_GetCurrentPopulation(player, CT_Personnel)
+	
+	return math.floor(curPop) .. "/" .. math.floor(maxPop)
+end
+
+function UpdatePopulationComposition(t, player)
+	t.workerPopulation, t.idleWorkerPopulation, t.allMilitaryPopulation, t.militaryPopulation, t.siegePopulation
+		= PopulationComposition:GetForPlayer_Worker_WorkerIdle_Military_MilitaryNonSiege_Siege(player)
+end
+
+function UpdateRelics(t, player)
+	t.relics, t.relicsDeposited = RelicLocations:GetForPlayer_Carried_Deposited(player)
+end
+
+function DismissErrors(default, func)
+    local success, result = pcall(func)
+    if success then
+        return result
+    end
+    
+    return default
+end
+
+function GetIconNameFromSquadBlueprintUnsafe(pbg, race)
+	return BP_GetSquadUIInfo(pbg, race).iconName
+end
+
+function GetIconNameFromSquadBlueprint(pbg, race)
+    return DismissErrors(nil, function() return GetIconNameFromSquadBlueprintUnsafe(pbg, race) end)
+end
+
+function GetIconNameFromUpgradeBlueprintUnsafe(pbg)
+	return BP_GetUpgradeUIInfo(pbg).iconName
+end
+
+function GetIconNameFromUpgradeBlueprint(pbg)
+    return DismissErrors(nil, function() return GetIconNameFromUpgradeBlueprintUnsafe(pbg) end)
+end
+
+function HasMilitaryIcon(bp, race)
+	return BP_GetSquadUIInfo(bp, race).tooltipDataTemplate == "BuildingMilitaryDataTemplate"
+end
+
+function AddOrAggregateCountWithExisting(t, icon, count)
+	if t[icon] then
+		t[icon] = t[icon] + count
+		return
+	end
+	t[icon] = count
+end
+
+function AddOrAggregateisMilitaryWithExisting(t, icon, isMilitary)
+	if t[icon] then
+		t[icon] = t[icon] or isMilitary
+		return
+	end
+	t[icon] = isMilitary
+end
+
+function GetUnits(player, race, isMilitary)
+	local ownedSquads = OwnedSquads:GetForPlayer(player)
+	local units = {}
+	for _, stuff in pairs(ownedSquads) do
+        local icon = GetIconNameFromSquadBlueprint(stuff.Bp, race)
+		if icon then
+			icon = AdaptIconPathForXaml(icon)
+			AddOrAggregateCountWithExisting(units, icon, stuff.Count)
+			AddOrAggregateisMilitaryWithExisting(isMilitary, icon, HasMilitaryIcon(stuff.Bp, race))
+		end
+	end
+	
+	return units
+end
+
+function GetQueuedStuff(player, race, isMilitary)
+	local queuedStuff = QueuedStuff:GetForPlayer(player)
+	local upgradesQueued = {}
+	local queued = {}
+	for _, stuff in pairs(queuedStuff) do
+		if stuff.Bp.PropertyBagGroupType == PBGTYPE_Upgrade then
+        	table.insert(upgradesQueued, {icon = AdaptIconPathForXaml(GetIconNameFromUpgradeBlueprint(stuff.Bp))})
+		elseif stuff.Bp.PropertyBagGroupType == PBGTYPE_Squad then
+			local icon = GetIconNameFromSquadBlueprint(stuff.Bp, race)
+			if icon then
+				icon = AdaptIconPathForXaml(icon)
+				AddOrAggregateCountWithExisting(queued, icon, stuff.Count)
+				AddOrAggregateisMilitaryWithExisting(isMilitary, icon, HasMilitaryIcon(stuff.Bp, race))
+			end
+		end
+	end
+		
+	return queued, upgradesQueued
+end
+
+function HashSetToArray(t)
+	local array = {}
+	for icon, count in pairs(t) do
+		table.insert(array, {icon = icon, count = count})
+	end
+	return array
+end
+
+function BuildUnitsUiTable(units, queued)
+	for i = 1, #units do
+		local queuedCount = queued[units[i].icon]
+		queued[units[i].icon] = nil
+		
+		if not queuedCount then 
+			queuedCount = 0
+		end
+		
+		units[i].queued = queuedCount
+	end
+	for icon, count in pairs(queued) do
+		if count ~= 0 then
+			table.insert(units, {icon = icon, count = 0, queued = count})
+		end
+	end
+	
+	for i = 1, #units do
+		units[i].countNot0 = units[i].count ~= 0
+		units[i].queuedNot0 = units[i].queued ~= 0 
+	end
+	return units
+end
+
+function SplitByIsMilitary(units, isMilitary)
+	local military = {}
+	local civil = {}
+	for i = 1, #units do
+		if isMilitary[units[i].icon] then
+			table.insert(military, units[i])
+		else
+			table.insert(civil, units[i])
+		end 
+	end
+	
+	return military, civil
+end
+
+function UpdateUnitsAndQueuedStuff(t, player, race)
+	if not ObserverUI_Settings.ShowArmy then
+		t.upgradesQueued = {}
+		t.units = {}
+		t.unitsWorkers = {}
+		return
+	end
+	
+	local isMilitary = {}
+	local units = HashSetToArray(GetUnits(player, race, isMilitary))
+	local queued, upgradesQueued = GetQueuedStuff(player, race, isMilitary)
+								
+	local ui = BuildUnitsUiTable(units, queued)
+	local militaryUi, civilUi = SplitByIsMilitary(ui, isMilitary)
+	
+	table.sort(militaryUi, CompareUnitCount)
+	
+	for i = 1, #militaryUi do 
+		militaryUi[i].civil = false
+		militaryUi[i].Color = t.color
+	end
+	for i = 1, #civilUi do civilUi[i].civil = true end
+	
+	t.upgradesQueued = upgradesQueued
+	t.units = militaryUi
+	t.unitsWorkers = civilUi
+end
+
+function CompareUnitCount(unit1, unit2)
+	if unit1.count ~= unit2.count then
+		return unit1.count < unit2.count
+	end
+	return unit1.queued < unit2.queued
+end
+
+function UpdateIsUpping(t, player)
+	t.isUpping, t.ageUpProgress, t.upAt, t.upIcon, t.upName = 
+		AgingUpProgress:GetForPlayer_IsAgingUp_Progress_EstimatedTimeOfCompletion_Icon_Name(player)
+end

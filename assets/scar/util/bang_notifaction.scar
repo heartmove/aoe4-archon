@@ -1,0 +1,28 @@
+
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+Core_RegisterModule("bang_notifaction")
+
+_bang_notifaction = {
+	core_cue = {
+				lifetime = 5.0,
+				repeatTime = 20.0,
+				title = Loc_Empty(),
+				desc = Loc_Empty(),
+				sfx = "sfx_ui_event_queue_high_priority_play",
+				icon = "icons\\event_queue_high_priority",
+				icon_high = "icons\\event_queue_high_priority_large",
+				color = {r = 255, g = 255, b = 255, a = 255},
+				template = "high_priority",
+				style = ECV_Queue | ECV_Title,
+			},
+	
+}
+
+function Bang_NotifactionCore(player, title) 
+	local color = Player_GetUIColour(player.id)
+    local cue = _bang_notifaction.core_cue
+	UI_CreateEventCueClickable(-1, cue.lifetime, 0, cue.repeatTime, title, cue.desc, cue.template, cue.icon, cue.sfx, color.r, color.g, color.b, color.a, cue.style, nothing)
+end

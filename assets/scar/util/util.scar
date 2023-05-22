@@ -1,0 +1,94 @@
+-- 圣物奖励
+
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+function GetBPEntityCount(bpName)
+	local eg = EGroup_CreateUnique()
+	
+	World_GetBlueprintEntities(BP_GetEntityBlueprint(bpName), eg)	
+
+	return EGroup_CountSpawned(eg)
+	
+end
+
+
+function GetRelics(playerId)
+	local relics = 0
+	local relicsDeposited = 0
+	
+    local countRelics = function(egroup, index, entity)
+		local tempRelics = Entity_GetStateModelFloat(entity, "Relic_Count")
+		
+		if Entity_IsBuilding(entity) and not Entity_IsPartOfSquad(entity) then
+			relicsDeposited = relicsDeposited + tempRelics
+		else
+			relics = relics + tempRelics
+		end
+    end
+    local egroup = Player_GetAllEntities(playerId)
+	EGroup_ForEach(egroup, countRelics)
+	
+	return relics, relicsDeposited
+end
+
+
+function SyncStateModelBool(source, dest, key)
+	Player_SetStateModelBool(dest, key, Player_GetStateModelBool(source, key))
+end
+
+
+function SyncStateModelFloat(source, dest, key)
+	Player_SetStateModelFloat(dest, key, Player_GetStateModelFloat(source, key))
+end
+
+function SyncStateModelInt(source, dest, key)
+	Player_SetStateModelInt(dest, key, Player_GetStateModelInt(source, key))
+end
+
+
+function SGroup_RemoveSquadByType(sg, squadType)
+	if sg == nil then
+		return
+	end
+	local count = SGroup_Count(sg)
+	if count < 1 then 
+		return
+	end
+	for i = count, 1, -1 do 
+		local squad = SGroup_GetSquadAt(sg, i)
+		if Squad_IsOfType(squad, squadType) then 
+			SGroup_Remove(sg, squad)
+		end
+	end
+end
+
+
+function SGroup_RemoveSquadByBpName(sg, bpName)
+	if sg == nil then
+		return
+	end
+	local count = SGroup_Count(sg)
+	if count < 1 then 
+		return
+	end
+	for i = count, 1, -1 do 
+		local squad = SGroup_GetSquadAt(sg, i)
+		local bp = Squad_GetBlueprint(squad)
+		if BP_GetName(bp) == bpName then 
+			SGroup_Remove(sg, squad)
+		end
+	end
+end
+
+TOWER_TYPES = {"scar_keep" ,"scar_outpost"  }
+
+function Entity_IsTower(entity)
+	for i, t in pairs(TOWER_TYPES) do 
+		if Entity_IsOfType(entity, t) then 
+			return true
+		end
+	end
+	return false
+end

@@ -1,0 +1,32 @@
+
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+import("util/fastproduct.scar")
+
+
+Core_RegisterModule("Dev")
+
+function FastProduct_OnInit()
+end
+
+function FastProduct_Start()
+	if Misc_IsDevMode() then
+		FOW_ExploreAll()
+		FOW_RevealAll()
+		for i, player in pairs(PLAYERS) do
+			if player.isLocal then
+				FastProduct_ModifyProductSpeed(player, 0.1)
+				
+			end
+			
+			local resources = {
+					gold = 29999, 
+					wood = 29999, 
+					food = 29999, 
+					stone = 29999,
+				}
+				-- Player_SetPopCapOverride(player.id, _mod.maxPopCap)
+				Player_AddResources(player.id, resources)
+		end
+	end
+end

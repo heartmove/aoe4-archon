@@ -1,0 +1,1344 @@
+-----------------------------------------------------------------------
+-- Imported Scripts
+-----------------------------------------------------------------------
+
+-- Import Utility Scripts
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+import("util/dev.scar")
+import("util/util.scar")
+import("gameplay/rally_point.scar")
+import("gameplay/role.scar")
+import("replay/ObserverUI.scar")
+
+import("startconditions/archon_nomad_start.scar")
+
+-- Import Gameplay Systems
+import("gameplay/score.scar")					-- Tracks player score
+import("gameplay/archon_diplomacy.scar")				-- Manages Tribute
+import("gameplay/rally_point.scar")
+import("gameplay/entity_convert.scar")
+
+-- Import Win Conditions
+import("winconditions/archon_annihilation.scar")		-- Support for eliminating a player when they can no longer fight or produce units
+import("winconditions/elimination.scar")		-- Support for player quitting or dropping (through pause menu or disconnection)
+import("winconditions/surrender.scar")			-- Support for player surrender (through pause menu)
+import("winconditions/archon_conquest.scar")
+import("winconditions/religious.scar")
+import("winconditions/wonder.scar")
+import("winconditions/archon_regicide_king.scar")
+
+-- Import UI Support
+import("gameplay/chi/current_dynasty_ui.scar")	-- Displays Chinese Dynasty UI
+import("gameplay/event_cues.scar")
+import("gameplay/currentageui.scar")
+
+-----------------------------------------------------------------------
+-- Data
+-----------------------------------------------------------------------
+
+-- Global data table that can be referenced in script functions (e.g. _mod.module = "Mod")
+_mod = {
+	module = "Archon",
+	slot_player = {
+		
+	},
+	teams = {
+		
+	},
+	
+	roles = {
+		
+	},
+	options = {},
+	civil_slot = {
+		
+	},
+	enable_civil_army = false,
+	enable_single_race = false,
+	enble_color_role = false,
+	gather_rate = 1.0,
+	ai_teams = {},
+	enable_civil_army_no_limit = false,
+	keep_general_resource = true,
+	enable_control_teammate_squad = false,
+	enable_nomad_start = false,
+	enable_king_mode = false,
+	enable_english_tower_owner_change = false,
+	enable_entity_convert = false,
+}
+
+ROLE_GENERAL = 0
+ROLE_CIVIL = 1
+
+ARCHON_HOUSE_TYPE = {"town_center", "scar_house", "house"}
+MAX_POP_CAP = 200
+
+TEAM_POP_CAP = 400
+
+-- Register the win condition (Some functions can be prepended with "Archon_" to be called automatically as part of the scripting framework)
+Core_RegisterModule(_mod.module)
+-----------------------------------------------------------------------
+-- Scripting framework 
+-----------------------------------------------------------------------
+
+-- Called during load as part of the game setup sequence
+function Archon_OnGameSetup()
+	Setup_GetWinConditionOptions(_mod.options)
+	
+	for key, value in pairs(_mod.options.role_settings.civil_slot_1.enum_items) do
+		if value == _mod.options.role_settings.civil_slot_1.enum_value then
+			local slot = string.sub(key,  6)
+			Role_AddSettings(1, tonumber(slot))
+			break
+		end
+	end
+	
+	for key, value in pairs(_mod.options.role_settings.civil_slot_2.enum_items) do
+		if value == _mod.options.role_settings.civil_slot_2.enum_value then
+			local slot = string.sub(key,  6)
+			Role_AddSettings(2, tonumber(slot))
+			break
+		end
+	end
+	
+	for key, value in pairs(_mod.options.role_settings.civil_slot_3.enum_items) do
+		if value == _mod.options.role_settings.civil_slot_3.enum_value then
+			local slot = string.sub(key,  6)
+			Role_AddSettings(3, tonumber(slot))
+			break
+		end
+	end
+	
+	for key, value in pairs(_mod.options.role_settings.civil_slot_4.enum_items) do
+		if value == _mod.options.role_settings.civil_slot_4.enum_value then
+			local slot = string.sub(key,  6)
+			Role_AddSettings(4, tonumber(slot))
+			break
+		end
+	end
+	
+	
+	for key, value in pairs(_mod.options.common_settings.team_pop_cap.enum_items) do
+		if value == _mod.options.common_settings.team_pop_cap.enum_value then
+			local val = string.sub(key,  5)
+			TEAM_POP_CAP = tonumber(val)
+			break
+		end
+	end
+	
+	
+	
+	
+	_mod.enable_civil_army = _mod.options.common_settings.enable_civil_army
+	_mod.enable_single_race = _mod.options.common_settings.enable_single_race
+	_mod.enable_civil_army_no_limit = _mod.options.common_settings.enable_civil_army_no_limit
+	Role_SetAiTeamNoRole( _mod.options.common_settings.enable_ai_team_no_role)
+	Role_SetSingleTeamNoRole( _mod.options.common_settings.enable_single_team_no_role) 
+	--_mod.enble_color_role = _mod.options.role_settings.enble_color_role
+	_mod.keep_general_resource = _mod.options.special_settings.keep_general_resource
+	--_mod.enable_control_teammate_squad = _mod.options.common_settings.enable_control_teammate_squad	
+	_mod.enable_nomad_start = _mod.options.common_settings.enable_nomad_start	
+	_mod.enable_king_mode = _mod.options.common_settings.enable_king_mode	
+	
+	_mod.enable_english_tower_owner_change = false
+	--_mod.options.special_settings.enable_english_tower_owner_change
+	_mod.enable_entity_convert =  _mod.options.special_settings.enable_entity_convert	
+	--[[
+	if not UI_IsReplay() then 
+		for i = 1, World_GetPlayerCount() do 
+			local id = World_GetPlayerAt(i)		
+			Setup_SetPlayerName(id, "玩家"..i)
+		end
+	end
+	--]]
+	
+	if not _mod.enable_nomad_start then 
+		Core_UnregisterModule("NomadStart")		
+	end
+	if not _mod.enable_king_mode then 
+		Core_UnregisterModule("RegicideKing")		
+	end
+end
+
+function Archon_IsAllowEntityConvert() 
+	return _mod.enable_entity_convert
+end
+
+function Archon_CivilArmyLimited()
+	return _mod.enable_civil_army_no_limit
+end
+
+-- Called before initialization, preceding other module OnInit functions
+function Archon_PreInit()
+	localPlayer = Core_GetPlayersTableEntry(Game_GetLocalPlayer())
+	-- Enable Tribute UI
+	Core_CallDelegateFunctions("TributeEnabled", true)
+	
+	Core_CallDelegateFunctions("DiplomacyEnabled", true)
+	--[[
+	if not UI_IsReplay() then 
+		for i,player in pairs(PLAYERS) do  
+			player.playerName = "player" .. i
+		end
+	end
+	--]]
+	
+end
+
+-- Called on match initialization before handing control to the player
+function Archon_OnInit()
+	
+	Archon_SelectRole()
+	
+	Rule_AddGlobalEvent(Archon_OnConstructionComplete, GE_ConstructionComplete)
+	Rule_AddGlobalEvent(Archon_OnBuildItemComplete, GE_BuildItemComplete)
+	Rule_AddGlobalEvent(Archon_OnUpgradeComplete, GE_UpgradeComplete)
+
+	Rule_AddGlobalEvent(Archon_OnEntityKilled, GE_EntityKilled)
+
+	Rule_AddGlobalEvent(Archon_OnSquadKilled, GE_SquadKilled)
+	Rule_AddGlobalEvent(Archon_OnUpgradeStart, GE_UpgradeStart)
+	Rule_AddGlobalEvent(Archon_OnSquadSpawn, GE_SquadSpawn)
+
+	Rule_AddGlobalEvent(Archon_OnEntityAbandoned, GE_EntityAbandoned)
+	Rule_AddGlobalEvent(Archon_OnEntityDespawn, GE_EntityDespawn)
+	Rule_AddGlobalEvent(Archon_OnEntityCrushed, GE_EntityCrushed)
+	Rule_AddGlobalEvent(Archon_OnEntityParadropComplete, GE_EntityParadropComplete)
+	Rule_AddGlobalEvent(Archon_OnEntityRestored, GE_EntityRestored)
+	Rule_AddGlobalEvent(Archon_OnEntityRecrewed, GE_EntityRecrewed)
+	Rule_AddGlobalEvent(Archon_OnEntitySpawn, GE_EntitySpawn)
+	
+	Rule_AddGlobalEvent(Archon_OnSelectionChanged, GE_SelectionChanged)
+	Rule_AddGlobalEvent(Archon_OnSubSelectionChanged, GE_SubselectionChanged)
+
+	Rule_AddGlobalEvent(Archon_OnSquadProductionQueue, GE_SquadProductionQueue)
+	
+	Rule_AddGlobalEvent(Archon_OnSquadBuildCommandIssued, GE_SquadBuildCommandIssued)
+	Rule_AddGlobalEvent(Archon_OnEntityCommandIssued, GE_EntityCommandIssued)
+	Rule_AddGlobalEvent(Archon_OnBuildItemStart, GE_BuildItemStart)
+	
+	if _mod.enable_control_teammate_squad then 
+		Rule_AddInterval(Archon_SelectEntity, 1)
+	end
+	
+	--Rule_AddGlobalEvent(Archon_OnPlayerAddResource, GE_PlayerAddResource)
+	--Rule_AddGlobalEvent(Archon_OnPlayerResourcesAwarded, GE_PlayerResourcesAwarded)
+
+end
+
+function Archon_OnPlayerAddResource(context)
+	print("Archon_OnPlayerAddResource.....")
+	if localPlayer.id == context.player then 
+		local res = context.resources 
+		if res.food ~= 0 or res.gold ~= 0 or res.wood ~= 0 or res.stone ~= 0 then 
+			print("Archon_OnPlayerAddResource.....")
+		end
+	end
+end
+
+function Archon_OnPlayerResourcesAwarded(context)
+	print("Archon_OnPlayerResourcesAwarded.....")
+end
+
+function Archon_SelectEntity()
+	local sg = SGroup_CreateIfNotFound("testxxvcxv")
+	Misc_GetSelectedSquads(sg, false)
+	local count = SGroup_Count(sg)
+	local flag = false 
+	if count > 0 then
+		
+		local squad = SGroup_GetSquadAt(sg, 1)
+		if World_OwnsSquad(squad) then 
+			return 
+		end
+		local owner = Squad_GetPlayerOwner(squad)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		if owner ~= localPlayer.id and rel == R_ALLY then
+			for i = count, 1 do 
+				local s = SGroup_GetSquadAt(sg, i)
+				if Squad_IsOfType(s, "villager") or World_OwnsSquad(s) or Squad_IsOfType(s, "leader")  then 
+					SGroup_Remove(sg, s)
+				end
+			end
+			SGroup_SetPlayerOwner(sg, localPlayer.id)
+		end 
+		return
+		SGroup_Clear(sg)
+	end
+
+	
+	-- Archon_ChangeEntityOwner()
+end
+
+function Archon_ChangeEntityOwner()
+	local eg = EGroup_CreateIfNotFound("test1xxvcxv")
+	Misc_GetSelectedEntities(eg, false)
+	local count = EGroup_Count(eg)
+	local flag = false 
+	if count > 0 then
+		local entity = EGroup_GetEntityAt(eg, 1)
+		if World_OwnsEntity(entity) then 
+			return 
+		end
+		local owner = Entity_GetPlayerOwner(entity)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		if owner ~= localPlayer.id and rel == R_ALLY then
+			for i = count, 1 do 
+				local e = EGroup_GetEntityAt(eg, i)
+				if Entity_IsOfType(e, "landmark") or Entity_IsOfType(e, "wonder") or Entity_IsOfType(e, "resource_drop_off")  or World_OwnsEntity(e) then 
+					EGroup_Remove(eg, e)
+				end
+			end
+			EGroup_SetPlayerOwner(eg, localPlayer.id)
+		end 	
+	end
+	EGroup_Clear(eg)
+end
+
+
+function Archon_OnBuildItemStart(context)
+	print("Archon_OnBuildItemStart...")
+end
+
+function Archon_OnEntityCommandIssued(context)
+	print("Archon_OnEntityCommandIssued....") -- context.context
+end
+
+function Archon_OnSquadBuildCommandIssued(context)
+	print("Archon_OnSquadBuildCommandIssued....")
+end
+
+function Archon_OnSquadProductionQueue(context)
+	print("GE_SquadProductionQueue....")
+end
+
+function Archon_OnEntitySpawn(context)
+	print("Archon_OnEntitySpawn....")
+end
+
+function Archon_OnEntityRestored(context)
+	print("Archon_OnEntityRestored....")
+end
+
+function Archon_OnEntityRecrewed(context)
+	print("Archon_OnEntityRecrewed....")
+end
+
+function Archon_OnEntityAbandoned(context)
+	print("Archon_OnEntityAbandoned....")
+end
+
+function Archon_OnEntityDespawn(context)
+	print("Archon_OnEntityDespawn....")
+end
+
+function Archon_OnEntityCrushed(context)
+	print("Archon_OnEntityCrushed....")
+end
+
+function Archon_OnEntityParadropComplete(context)
+	print("Archon_OnEntityParadropComplete....")
+end
+
+function Archon_OnUpgradeStart(context) 
+	if scartype(context.executer) == ST_ENTITY then
+		if not World_OwnsEntity(context.executer) then
+			local owner = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.executer))
+			local cost = Player_GetUpgradeBPCost(owner.id, context.upgrade)
+			if Player_GetRaceName(owner.id) == "malian" then 
+				Modify_UpgradeBuildTime(owner.id, context.upgrade, 1.0)
+			end
+		end
+	end
+end
+
+-- Called after initialization is done when game is fading up from black
+function Archon_Start()
+
+	Archon_ChangeEntities()
+		-- 初始化人口数
+	for i, player in pairs(PLAYERS) do
+		if Player_GetRaceName(player.id) == "mongol" then 
+			player.popCap =  TEAM_POP_CAP
+			--Player_GetMaxPopulationCap(player.id, CT_Personnel)
+		else
+			player.popCap = Player_GetCurrentPopulationCap(player.id, CT_Personnel)
+		end
+		
+		print(player.popCap)
+	end
+	
+	Rule_AddInterval(Archon_SyncData, 1)
+	Archon_CreateResourceUI()
+	Rule_AddInterval(Archon_UpdateResourceUI, 1)
+end
+
+
+
+function Archon_SyncData()
+	for i,team in pairs(_mod.teams) do 
+		for j, player in pairs(team) do 
+			local state = Player_GetState(player.id)
+			
+			local teammate = Archon_GetMyTeammate(player.id)
+			if player.role == ROLE_CIVIL then
+				local raceName = Player_GetRaceName(player.id)
+				if raceName == "mongol" then 
+					local khanSg = Player_GetSquadsFromType(teammate.id, "khan")
+					-- khan数量大于0时，就不让他部署
+					if SGroup_Count(khanSg) > 0 then
+						Player_SetStateModelBool(player.id, "khan_spawning_enabled", false)
+						local myKhanSg = Player_GetSquadsFromType(player.id, "khan")
+						if SGroup_Count(myKhanSg) > 0 then 
+							SGroup_Kill(myKhanSg)
+						end
+					else
+						Player_SetStateModelBool(player.id, "khan_spawning_enabled", true)
+					end
+				end
+				-- and Player_GetRaceName(teammate.id) == "chinese" 
+				if raceName == "chinese" then 
+					SyncStateModelBool(player.id, teammate.id, "dynasty_1_was_completed_chi")
+					SyncStateModelBool(player.id, teammate.id, "dynasty_2_was_completed_chi")
+					SyncStateModelBool(player.id, teammate.id, "dynasty_3_was_completed_chi")
+					SyncStateModelBool(player.id, teammate.id, "spirit_way_active")
+					SyncStateModelBool(player.id, teammate.id, "build_previous_dynasty_units")
+					SyncStateModelBool(player.id, teammate.id, "great_wall_active_chi")
+					SyncStateModelFloat(player.id, teammate.id, "age1_wonders_built_chi")
+					SyncStateModelFloat(player.id, teammate.id, "age2_wonders_built_chi")
+					SyncStateModelFloat(player.id, teammate.id, "age3_wonders_built_chi")
+					SyncStateModelFloat(player.id, teammate.id, "age4_wonders_built_chi")
+					SyncStateModelFloat(player.id, teammate.id, "current_dynasty_chi")
+					SyncStateModelFloat(player.id, teammate.id, "granary_drop_off_amount_chi")
+				elseif raceName == "english" then 
+					SyncStateModelBool(player.id, teammate.id, "district_spec_network_of_castles_range_upgrade")
+					SyncStateModelBool(player.id, teammate.id, "district_spec_longbow_fire_rate_ability")
+					SyncStateModelBool(player.id, teammate.id, "district_spec_siege_projectile_eng")
+					SyncStateModelBool(player.id, teammate.id, "district_spec_longbow_speed_out_of_combat")
+					SyncStateModelBool(player.id, teammate.id, "upgrade_longbow_palings_damage_eng")
+					SyncStateModelBool(player.id, teammate.id, "enclosure_upgrade_eng")
+					SyncStateModelFloat(player.id, teammate.id, "network_of_castles_duration")
+					SyncStateModelFloat(player.id, teammate.id, "district_spec_siege_projectile_eng")
+					SyncStateModelFloat(player.id, teammate.id, "longbow_arrow_volley_duration_eng")
+					SyncStateModelFloat(player.id, teammate.id, "longbow_arrow_volley_range_eng")
+					SyncStateModelFloat(player.id, teammate.id, "longbow_arrow_volley_rate_of_fire_eng")
+					SyncStateModelFloat(player.id, teammate.id, "network_of_castles_attack_eng")
+				elseif race == "abbasid" then 
+					SyncStateModelBool(player.id, teammate.id, "military_wing_built_abb")
+					SyncStateModelBool(player.id, teammate.id, "wing_upgrade_in_progress_abb")
+					SyncStateModelBool(player.id, teammate.id, "wing_upgrade_cancelled_abb")
+					
+					SyncStateModelFloat(player.id, teammate.id, "mameluke_anti_cavalry_aura_timer")
+					SyncStateModelFloat(player.id, teammate.id, "golden_age_production_speed_bonus_abb")
+					SyncStateModelFloat(player.id, teammate.id, "golden_age_level_abb")
+					
+				elseif race == "french" then 
+					SyncStateModelBool(player.id, teammate.id, "chamber_of_commerce_built_fre")
+					SyncStateModelBool(player.id, teammate.id, "blacksmith_built_fre")
+
+					SyncStateModelFloat(player.id, teammate.id, "lancer_charge_bonus_fre")
+				
+				elseif race == "hre" then 
+					SyncStateModelBool(player.id, teammate.id, "district_spec_monk_aoe_hre")
+					
+					SyncStateModelFloat(player.id, teammate.id, "monk_inspiration_cast_time")
+					SyncStateModelFloat(player.id, teammate.id, "district_spec_self_repair_rate_hre")
+					SyncStateModelFloat(player.id, teammate.id, "holy_inspiration_infantry_buff_value_hre")
+					SyncStateModelFloat(player.id, teammate.id, "district_spec_heal_ins_aoe_range_hre")
+					SyncStateModelFloat(player.id, teammate.id, "monk_inspiration_buff_time_warriors")
+					SyncStateModelFloat(player.id, teammate.id, "relics_in_docks_hre")			
+					
+				elseif race == "malian" then 
+					SyncStateModelBool(player.id, teammate.id, "landmark_toll_outpost_built_mal")
+					SyncStateModelBool(player.id, teammate.id, "landmark_stealth_castle_built_mal")
+
+					
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_melee_damage_bonus_mal")
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_melee_damage_bonus_landmark_mal")
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_ranged_damage_bonus_mal")
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_ranged_damage_bonus_landmark_mal")
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_melee_speed_bonus_mal")
+					SyncStateModelFloat(player.id, teammate.id, "gbeto_stealth_ranged_speed_bonus_mal")
+					SyncStateModelFloat(player.id, teammate.id, "festival_duration_mal")
+				elseif race == "mongols" then 
+					SyncStateModelBool(player.id, teammate.id, "district_improved_silk_road_stone_generation_mon")
+					SyncStateModelBool(player.id, teammate.id, "district_spec_outpost_archery_attack_speed_mon")
+					SyncStateModelBool(player.id, teammate.id, "age2_wonder2_built_mon")
+					SyncStateModelBool(player.id, teammate.id, "age3_wonder1_built_mon")
+					SyncStateModelBool(player.id, teammate.id, "age1_wonder2_built_mon")
+					SyncStateModelBool(player.id, teammate.id, "district_stupa_monastery_ovoo_aura")
+
+					
+					SyncStateModelFloat(player.id, teammate.id, "khan_signal_arrow_range")
+					SyncStateModelFloat(player.id, teammate.id, "saints_blessing_radius_rus")
+					SyncStateModelFloat(player.id, teammate.id, "saints_buff_duration_rus")
+					SyncStateModelFloat(player.id, teammate.id, "pack_reserve_pop_mon")
+					SyncStateModelFloat(player.id, teammate.id, "silk_road_tier_4_stone_bonus_improved_mon")
+					SyncStateModelFloat(player.id, teammate.id, "military_building_heal_amount_mon")
+					SyncStateModelFloat(player.id, teammate.id, "saints_blessing_armour_bonus_rus")
+					SyncStateModelFloat(player.id, teammate.id, "saints_blessing_damage_bonus_rus")					
+				elseif race == "ottoman" then 
+					SyncStateModelBool(player.id, teammate.id, "istanbul_observatory_active_ott")
+					SyncStateModelBool(player.id, teammate.id, "kilitbahir_castle_active_ott")
+
+					
+					SyncStateModelFloat(player.id, teammate.id, "imperial_council_exp_ott")
+					SyncStateModelFloat(player.id, teammate.id, "imperial_council_level_ott")
+					SyncStateModelFloat(player.id, teammate.id, "military_school_production_speed_ott")
+					SyncStateModelFloat(player.id, teammate.id, "feudal_influence_ott")
+					SyncStateModelFloat(player.id, teammate.id, "castle_influence_ott")
+					SyncStateModelFloat(player.id, teammate.id, "imperial_influence_ott")
+					SyncStateModelFloat(player.id, teammate.id, "istanbul_observatory_influence_ott")
+					
+					
+					SyncStateModelInt(player.id, teammate.id, "military_school_limit_ott")		
+					SyncStateModelInt(player.id, teammate.id, "janissary_company_ott")		
+					SyncStateModelInt(player.id, teammate.id, "janissary_increase_ott")		
+					SyncStateModelInt(player.id, teammate.id, "total_viziers_ott")		
+					SyncStateModelInt(player.id, teammate.id, "vizier_limit_ott")		
+					SyncStateModelInt(player.id, teammate.id, "military_school_count")		
+					SyncStateModelInt(player.id, teammate.id, "janissary_spawn_count_ott")		
+				elseif race == "rus" then 
+					SyncStateModelBool(player.id, teammate.id, "kremlin_armoury_constructed_rus")
+						
+				elseif race == "sultanate" then 
+					SyncStateModelBool(player.id, teammate.id, "tower_of_victory_alive")
+					SyncStateModelBool(player.id, teammate.id, "jahanpanah_palace_tier_2_sul")
+					SyncStateModelBool(player.id, teammate.id, "war_elephant_speed_aura_sul")
+					SyncStateModelBool(player.id, teammate.id, "attack_speed_active_sul")
+					SyncStateModelBool(player.id, teammate.id, "infantry_stone_wall_menu_sul")
+					SyncStateModelBool(player.id, teammate.id, "purana_qila_built_sul")
+
+					
+					SyncStateModelFloat(player.id, teammate.id, "bijay_mandal_palace_total_elephant_timer_modifier_sul")
+					SyncStateModelFloat(player.id, teammate.id, "bijay_mandal_palace_scholar_count_sul")
+				end
+				
+				
+				if Archon_IsCivilArmy() then
+					Archon_UpdatePopCap(player)
+				else
+					-- 设置队友的最大人口
+					local popCap = Player_GetCurrentPopulationCap(player.id, CT_Personnel)
+					Player_SetPopCapOverride(teammate.id, popCap)
+				end
+				
+				if Player_IsAlive(teammate.id) and not Archon_IsAllowEntityConvert() then 
+					local militarySG = Player_GetSquadsFromType(player.id, "scar_military")
+					SGroup_RemoveSquadByType(militarySG, "leader")
+					--TODO
+					SGroup_SetPlayerOwner(militarySG, teammate.id)
+				end
+				
+				-- 如果是蒙古，且不是单文明
+				if Player_GetRaceName(teammate.id) == "mongol" and Player_GetRaceName(player.id) ~= "mongol" and not Archon_IsSingleRace() then 
+					
+					-- 就把已拆包的非军事类建筑给文官
+					local meg = Player_GetEntities(teammate.id)
+					if not Archon_IsCivilArmy() then 
+						EGroup_Filter(meg, "mobile_building", FILTER_REMOVE)
+						EGroup_Filter(meg, "military", FILTER_REMOVE)
+					end
+					EGroup_SetPlayerOwner(meg, player.id)
+					
+					-- 就把未拆包的建筑给武官
+					-- meg = Player_GetEntitiesFromType(player.id, "mobile_building")
+					-- EGroup_SetPlayerOwner(meg, teammate.id)
+				end
+				
+				
+				-- 设置队友的经济
+				-- Player_SetResources(teammate, Player_GetResources(player.id))
+				--if Player_GetRaceName(owner.id) == "malian" then 
+				--	local bp = BP_GetUpgradeBlueprintByPbgID(171999)
+				--end
+				
+				--[[
+				if Player_GetRace(player.id) ~= "rus" and Player_GetRace(teammate.id) == "rus" then
+					Player_SetStateModelFloat(player.id, "high_trade_house_spawn_rate", 60.0)
+					Player_SetStateModelFloat(player.id, "hunter_deer_value_rus", 10.0)
+					Player_SetStateModelFloat(player.id, "hunter_boar_value_rus", 75.0)
+					Player_SetStateModelFloat(player.id, "hunter_wolf_value_rus", 25.0)
+					Player_SetStateModelFloat(player.id, "hunting_cabin_gold_generation_timer_rus", 30.0)
+					Player_SetStateModelFloat(player.id, "hunting_cabin_spawn_timer", 60.0)
+					Player_SetStateModelFloat(player.id, "hunting_cabin_player_gold_rate_rus", 0.0)
+					Player_SetStateModelFloat(player.id, "bounty_multiplier_rus", 1.0)
+					Player_SetStateModelFloat(player.id, "master_hunter_bounty_total_rus", 0.0)
+					Player_SetStateModelFloat(player.id, "hunting_cabin_gold_generation_cap_rus", 250.0)
+					Player_SetStateModelFloat(player.id, "hunting_cabin_tree_gold_value_rus", 0.45)
+					Player_SetStateModelFloat(player.id, "saints_buff_duration_rus", 10.0)
+				end
+				--]]
+			end
+		end
+	end
+	
+end
+
+-- 分配
+function Archon_Assign()
+	
+end
+
+function Archon_AdjustPopCap(playerId)
+	-- Player_GetCurrentPopulation(player.id, CT_Personnel)
+end
+
+
+function Archon_OnConstructionComplete(context)
+	Rule_AddOneShot(Archon_PostConstructionComplete, 0.25, context)
+	
+end
+
+
+function Archon_IsWall(entity)
+	-- stone_wall_tower  stone_wall gate wall  not landmark palisade_wall
+	if Entity_IsOfType(entity, "stone_wall_tower") or Entity_IsOfType(entity, "stone_wall") or Entity_IsOfType(entity, "gate") or Entity_IsOfType(entity, "wall") then 
+		
+	end
+end
+
+
+function Archon_PostConstructionComplete(context, data)
+	if data.player == nil or data.entity == nil then
+		return
+	end	
+	-- Get player constructing
+	local player = Core_GetPlayersTableEntry(data.player)
+	if not Player_IsAlive(player.id) or player.role == nil then
+		return
+	end
+	
+
+	local teammate = Archon_GetMyTeammate(player.id)
+	local entity = data.entity
+	
+	-- 所有军事建筑都将给下标9
+	if Archon_IsMiliratyBuildings(entity) and Player_ObserveRelationship(localPlayer.id, player.id) == R_ALLY then 
+		Misc_SetEntityControlGroup(entity, 0)
+	end
+	
+	-- 塔之类的都给英格兰
+	--[[
+	if Entity_IsTower(entity) and Player_GetRaceName(player.id) == "english" and Player_GetRaceName(teammate.id) == "english" and World_GetGameTime() > 5 * 60 and _mod.enable_english_tower_owner_change then 
+		Entity_SetPlayerOwner(entity, teammate.id)
+		Entity_SetSharedProductionQueue(entity, true)
+		return
+	end
+	
+	if Entity_IsOfType(entity, "relic_dropoff") and Player_GetRaceName(player.id) == "rus" then 
+		Entity_SetPlayerOwner(entity, teammate.id)
+		Entity_SetSharedProductionQueue(entity, true)
+		return
+	end
+	--]]
+	
+
+	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(player.id, CT_Personnel))
+	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(player.id, CT_Personnel))
+	local flag = Archon_IsMiliratyBuildings(entity)
+
+	local bp = Entity_GetBlueprint(entity)
+	-- 如果是军事建筑，并且是文官造的,没有开启文官造兵
+	if flag and player.role == ROLE_CIVIL and not _mod.enable_civil_army then
+		Entity_SetPlayerOwner(entity, teammate.id)
+		
+		-- 若文官文明是奥斯曼，那奥斯曼的军事学校能够建造的军事学校需要-1
+		if Player_GetRaceName(player.id) == 'ottoman' then 
+
+			if BP_GetName(bp) == "building_military_school_ott" then 
+				local count = Player_GetStateModelInt(player.id, "military_school_limit_ott")
+				Player_SetStateModelInt(player.id, "military_school_limit_ott", count - 1)
+			end
+		end
+	end
+	
+	
+	-- 如果是武将造的，需要排除墙之类的东西  stone_wall_tower  stone_wall gate wall  not landmark
+	if player.role == ROLE_GENERAL then
+		if Archon_IsCivilArmy() then
+			-- 如果是文官造兵，那就给队友
+			Entity_SetPlayerOwner(entity, teammate.id)
+		elseif not flag then
+			-- 如果是非军事建筑，那就给队友
+			Entity_SetPlayerOwner(entity, teammate.id)
+		end
+	end
+	
+	
+	if flag and _mod.enable_civil_army and Entity_HasProductionQueue(entity) then 
+		-- 文官造兵情况下才能够军事建筑共享
+		-- 军事建筑可以共享
+		Entity_SetSharedProductionQueue(entity, true)
+	end
+	
+	-- 罗斯的这个地标要给武将，不然会一直在刷鹿
+	if Player_GetRaceName(player.id) ~= "rus" and BP_GetName(bp) == "building_landmark_age2_muscovy_trade_company_control_rus" then 
+		Entity_SetPlayerOwner(entity, teammate.id)
+	end
+	
+	--[[
+	Cardinal_TypeToBlueprint_Init()
+	local unitTypes = {"building"}
+	Cardinal_TypeToBlueprint_CacheEntityBlueprints({"building"})
+	unitTypes = {"worker", "military"}
+	Cardinal_TypeToBlueprint_CacheSquadBlueprints(unitTypes)
+	--]]
+	
+	--local entity_id = Entity_GetID(entity)
+	--Entity_SetSharedProductionQueue(entity, true)
+	if Player_GetRaceName(player.id) ~= "mongol" then 
+		if Entity_IsOfType(entity, "town_center") or Entity_IsOfType(entity, "house") then 
+			local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
+			if entityPopCap ~= nil then
+				player.popCap = player.popCap + entityPopCap
+			end
+		end
+	end
+	
+	if Archon_IsCivilArmy() then
+		Misc_SetEntitySelectable(entity, true)
+	end
+end
+
+function Archon_IsSingleRace()
+	return _mod.enable_single_race
+end
+
+
+Archon_MiliratyBuilingType = {
+	"relic_dropoff","scar_siegeworkshop","scar_archeryrange","scar_blacksmith","scar_outpost","scar_barracks","scar_stable","scar_arsenal","scar_dock","military_production_building","military_only_production"
+	}
+function Archon_IsMiliratyBuildings(entity) 
+	local flag = false
+	
+	for i,t in pairs(Archon_MiliratyBuilingType) do 
+		if Entity_IsOfType(entity, t) then
+			flag = true
+			break
+		end
+	end
+	return flag
+end
+
+
+function Archon_OnBuildItemComplete(context)
+	local owner = Core_GetPlayersTableEntry(context.player)
+	if owner ~= nil and not owner.isEliminated and context.spawnedSquad ~= nil then 
+		local squad_id = context.spawnedSquad
+		local squadOwner = Core_GetPlayersTableEntry(Squad_GetPlayerOwner(squad_id))
+		if squadOwner.role == nil then 
+			return
+		end
+		
+		local teammate = Archon_GetMyTeammate(squadOwner.id)
+		local bp = Squad_GetBlueprint(squad_id)
+		
+		if Squad_IsOfType(squad_id, "villager") and teammate.role == ROLE_CIVIL then 
+			Squad_SetPlayerOwner(squad_id, teammate.id)
+			return
+		end
+		--[[
+		-- and Player_ObserveRelationship(localPlayer.id, squadOwner.id) == R_ALLY and localPlayer.id ~= squadOwner.id
+		if Squad_IsOfType(squad_id, "military")  then 
+			--Music_PlayStinger(MUS_STING_POSITIVE)
+
+			--Sound_Play2D("sfx_campaign_scripted_medium_group_engage")
+			
+		else  
+			--Music_PlayStinger("mus_stinger_event_combat_threat")
+			--Music_PlayStinger(MUS_STING_TRIUMPHANT)
+		end
+		--]]
+		if Squad_IsOfType(squad_id, "military") and squadOwner.role == ROLE_CIVIL and not Squad_IsOfType(squad_id, "monk") and not Squad_IsOfType(squad_id, "naval_fishing_ship")  then
+			-- 5分钟后部署的侦察兵不再分配给将军
+			if Squad_IsOfType(squad_id, "scout") and World_GetGameTime() > 10*60 and not Squad_IsOfType(squad_id, "khan") and Player_GetRaceName(squadOwner.id) ~= "malian" then 
+				return
+			end
+			
+			
+			if Archon_IsCivilArmy() then 
+				-- 如果是ai
+				if not squadOwner.isHuman and Squad_IsOfType(squad_id, "scout") then 
+					local scoutSg = Player_GetSquadsFromType(squadOwner.id, "scout")
+					if SGroup_Count(scoutSg) < 2 then
+						return 
+					end
+				end
+				
+				local raceName = Player_GetRaceName(squadOwner.id)
+				-- 国王数量大于0时，不转变成武官的单位
+
+				if BP_GetName(bp) == "unit_abbey_king_2" then 
+					local scoutSg = Player_GetSquadsFromType(teammate.id, "leader")
+					if SGroup_Count(scoutSg) > 0 then 
+						return
+					end
+				end
+				
+			end
+			
+
+
+			if Player_IsAlive(teammate.id) then
+				--TODO
+				Squad_SetPlayerOwner(squad_id, teammate.id)
+			end
+			
+			
+			if Archon_IsCivilArmy() then 
+				
+				local eg = EGroup_CreateIfNotFound("eg_"..Player_GetID(owner.id))
+				local squadPos = Squad_GetPosition(squad_id)
+				Player_GetAllEntitiesNearMarker(owner.id, eg, squadPos, 10)
+				local entity = Archon_GetClosetEntity(eg, squadPos)
+				if entity ~= nil then 
+					local sg = SGroup_CreateIfNotFound("sg_"..Player_GetID(owner.id))
+					SGroup_Add(sg, squad_id)
+					local pos = RallyPoint_Get(entity)
+					if pos ~= nil then 
+						Cmd_Move(sg, pos)
+					end
+					SGroup_Clear(sg)
+				end
+				EGroup_Clear(eg)
+				
+			end
+			
+			
+			
+			local popCap = Squad_Population(squad_id, CT_Personnel)
+			-- Squad_SetSharedProductionQueue(squad_id, true)
+		elseif Squad_IsOfType(squad_id, "scar_official") then 
+			-- 超过五个就kill，并返还资源
+			 local sg = Player_GetSquadsFromType(squadOwner.id, "scar_official")
+			 if SGroup_Count(sg) > 5 then
+				Squad_Kill(squad_id)
+				local resource = Player_GetSquadBPCost(squadOwner.id, bp)
+				Player_AddResources(squadOwner.id, resource)
+			 end
+		end
+	end
+end
+
+
+function Archon_GetClosetEntity(egroup, position) 
+	local closest_distance_sqr = 1000000000000
+	local closest_entity = nil
+	
+	local _CheckEntity = function(gid, idx, eid)
+		if Entity_IsUnderConstruction(eid) or not Entity_IsValid(Entity_GetID(eid)) then 
+			return 
+		end
+		
+		if not Archon_IsMiliratyBuildings(eid) then 
+			return
+		end
+		
+		local entityPosition = Entity_GetPosition(eid)
+		if entityPosition == nil then 
+			return
+		end
+		local distance_sqr = World_DistanceSquaredPointToPoint(entityPosition, position)
+		if closest_entity == nil then 
+			closest_entity = eid
+			closest_distance_sqr = distance_sqr
+			return 
+		end
+		
+		if distance_sqr < closest_distance_sqr then
+			closest_distance_sqr = distance_sqr
+			closest_entity = eid
+		end
+		
+	end
+	EGroup_ForEach(egroup, _CheckEntity)
+	
+	return closest_entity
+	
+end
+
+
+function Archon_OnUpgradeComplete(context) 
+	if context.upgrade == nil or context.executer == nil or (scartype(entity) == ST_ENTITY and World_OwnsEntity(context.executer)) then 
+		return
+	end
+	local ubp = context.upgrade
+	local entity = context.executer
+	local playerId = entity
+	
+	local upgradeFlag = true;
+	if scartype(entity) == ST_ENTITY then
+		playerId = Entity_GetPlayerOwner(entity)
+		local player = Core_GetPlayersTableEntry(playerId)
+		if player.role == nil then 
+			return 
+		end
+		-- 如果是海军单位，就不用给队友升级科技
+		if Entity_IsOfType(entity ,"naval_unit") then
+			upgradeFlag = false
+			local civil = player
+			local general = Archon_GetMyTeammate(player.id)
+			if player.role ~= ROLE_CIVIL then 
+				civil = general
+				general = player
+			end
+			
+			
+			local squad = Entity_GetSquad(entity)
+			
+			if Entity_IsOfType(entity, "worker") then 
+				--TODO
+				Squad_SetPlayerOwner(squad, civil.id)
+			else 
+				--TODO
+				Squad_SetPlayerOwner(squad, general.id)
+			end
+		end
+	end
+	
+	local teammate = Archon_GetMyTeammate(playerId)
+	if teammate ~= nil and not Player_HasUpgrade(teammate.id, ubp) and upgradeFlag then
+		Player_CompleteUpgrade(teammate.id, ubp)
+	end
+	
+end
+
+
+-- Called when Core_SetPlayerDefeated() is invoked. Signals that a player has been eliminated from play due to defeat.
+function Archon_OnPlayerDefeated(player, reason)
+	
+	if player.id == localPlayer.id  then
+		FOW_UIRevealAll()
+	end
+end
+
+
+-- When a victory condition is met, a module must call Core_OnGameOver() in order to invoke this delegate and notify all modules that the match is about to end. Generally used for clean up (removal of rules, objectives, and UI elements specific to the module).
+function Archon_OnGameOver()
+	
+	
+	
+end
+
+
+function Archon_IsCivilArmy()
+	return _mod.enable_civil_army
+end
+
+
+-- Global event callback for GE_DamageReceived
+function Archon_OnEntityKilled(context)
+	
+	-- If victim and attacker are not nil
+	if context.victimOwner ~= nil and not World_OwnsEntity(context.victim) then
+		
+		local bp = Entity_GetBlueprint(context.victim)
+		local player = Core_GetPlayersTableEntry(context.victimOwner)
+		if not Player_IsAlive(player.id) or player.role == nil then
+			return
+		end
+		
+		if BP_GetName(bp) == "building_military_school_ott" then 
+			-- 军事学院被摧毁时，需要给可建造的加1
+			if player.role == ROLE_CIVIL then
+				local teammate = Archon_GetMyTeammate(player.id)
+				local count = Player_GetStateModelInt(teammate.id, "military_school_limit_ott")
+				Player_SetStateModelInt(teammate.id, "military_school_limit_ott", count + 1)
+			end
+		end
+		
+		local entity = context.victim
+		if Player_GetRaceName(player.id) ~= "mongol" then 
+			if Entity_IsOfType(entity, "town_center") or Entity_IsOfType(entity, "house") then 
+				local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
+				if entityPopCap ~= nil then
+					player.popCap = player.popCap - entityPopCap
+				end
+			end
+		end
+	end
+	
+	if context.victimOwner ~= nil then
+		local entity = context.victim
+		local player = Core_GetPlayersTableEntry(context.victimOwner)
+		if Player_IsAlive(player.id) then 
+			if Player_GetRaceName(player.id) ~= "mongol" then 
+				if Entity_IsOfType(entity, "town_center") or Entity_IsOfType(entity, "house") then 
+					local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
+					if entityPopCap ~= nil then
+						player.popCap = player.popCap - entityPopCap
+					end
+				end
+			end
+		end
+	end
+end
+
+-- 更新人口数
+function Archon_UpdatePopCap(player) 
+	
+	if not Archon_IsCivilArmy() or not Archon_CivilArmyLimited() then
+		return
+	end
+	local roles = Archon_GetPlayerTeamRole(player)
+	local civil = roles.ROLE_CIVIL
+	local general = roles.ROLE_GENERAL
+	local popCap = player.popCap
+	
+	-- 如果当前人口数是大于团队最大人口数
+	if popCap > TEAM_POP_CAP then 
+		popCap = TEAM_POP_CAP
+	end
+
+	local civilPop = Player_GetCurrentPopulation(civil.id, CT_Personnel)
+	local generalPop = Player_GetCurrentPopulation(general.id, CT_Personnel)
+	local currentPop = civilPop + generalPop 
+	
+	-- 当两者人口之和大于当前人口上限时，需要先将文官人口填满，再填满武将人口
+	--if not player.isHuman and popCap <= 10 then 
+	   --ignore...
+	--else 
+		if currentPop >= popCap then 
+			Player_SetPopCapOverride(civil.id, civilPop)
+			local tempPop = popCap - civilPop
+			if tempPop < 1 then 
+				tempPop = 0
+			end
+			Player_SetPopCapOverride(general.id, tempPop)
+			
+			
+		else 
+			-- 当两者人口之和小于当前人口上限时，平分空闲人口
+			local freePopCap = popCap - currentPop
+			local tempGeneralPopCap = math.ceil(freePopCap/2)
+			
+			
+			Player_SetPopCapOverride(general.id, generalPop + tempGeneralPopCap)
+			Player_SetPopCapOverride(civil.id, civilPop + freePopCap - tempGeneralPopCap)
+		end
+	--end
+	
+	--print("civil Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(civil.id, CT_Personnel))
+	--print("general Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(general.id, CT_Personnel))
+end
+	
+	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(player.id, CT_Personnel))
+	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(player.id, CT_Personnel))
+
+
+function Archon_GetCiviMaxPopCap(player)
+	
+	if Player_GetRace(player.id) == "mongol" then 
+		return MAX_POP_CAP
+	end
+	local popCap = 0
+	
+	local types = {"town_center", "scar_house", "house"}
+	for i, t in pairs(types) do 
+		local eg = Player_GetEntitiesFromType(player.id, t)
+		local total = EGroup_Count(eg)
+		for i=1, total do
+			local entity = EGroup_GetEntityAt(eg, i)
+			if not Entity_IsUnderConstruction(entity) and Entity_IsValid(Entity_GetID(entity)) and Entity_IsAlive(entity) then 
+				local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
+				if entityPopCap ~= nil then
+					popCap = popCap + entityPopCap
+				end
+			end
+		end
+	end
+	
+	return math.min(popCap, MAX_POP_CAP)
+end
+
+
+function Archon_GetPlayerTeamRole(player)
+	local teammate = Archon_GetMyTeammate(player.id)
+	local civil = player 
+	local general = teammate
+	if player.role ~= ROLE_CIVIL then 
+		civil = teammate
+		general = player
+	end
+	
+	return {
+		ROLE_CIVIL = civil,
+		ROLE_GENERAL = general,
+	}
+	
+end
+
+function Archon_OnSquadKilled(context)
+    
+	
+	if context == nil or context.killer == nil  or context.victim == nil then
+		return 
+	end
+	
+	local squad = context.victim
+	-- 这部分可能比较影响性能先屏蔽，由定时器来调整
+	--[[
+	if not World_OwnsSquad(squad) then 
+		local ownerId = Squad_GetPlayerOwner(context.victim)
+		if ownerId == nil then
+			return
+		end
+		local owner = Core_GetPlayersTableEntry(ownerId)
+	
+		-- 当前消耗的人口数
+		local popCap =  Squad_Population(squad, CT_Personnel)
+		if owner and not Player_IsAlive(owner.id) then
+			return
+		end
+		Archon_UpdatePopCap(owner)
+	end
+	--]]
+	--[[
+	if not World_OwnsSquad(squad) then 
+		local ownerId = Squad_GetPlayerOwner(context.victim)
+		if ownerId == nil then
+			return
+		end
+		local owner = Core_GetPlayersTableEntry(ownerId)
+	
+		if Player_GetRaceName(owner.id) == "mongol" then
+			Player_SetStateModelBool(owner.id, "khan_spawning_enabled", true)
+		end
+	end
+	-]]
+	
+	
+	
+	
+	local killer = nil 
+	if scartype(context.killer) == ST_ENTITY and not World_OwnsEntity(context.killer) then
+		killer = Core_GetPlayersTableEntry(Entity_GetPlayerOwner(context.killer))
+	elseif scartype(context.killer) == ST_SQUAD and not World_OwnsSquad(context.killer) then
+		killer = Core_GetPlayersTableEntry(Squad_GetPlayerOwner(context.killer))
+	end
+	
+	if killer == nil or killer.role == nil then 
+		return
+	end
+	
+	local temmate = Archon_GetMyTeammate(killer.id)
+	
+	
+	if killer.role == ROLE_GENERAL and Player_GetRaceName(temmate.id) == "rus" and Player_IsAlive(temmate.id) then 
+		local bpName = BP_GetName(Squad_GetBlueprint(squad))
+		local  gold = 0
+		if bpName == "gaia_huntable_boar" then 
+			gold = 75
+		elseif bpName == "gaia_huntable_deer" then 
+			gold = 10
+		elseif bpName == "gaia_huntable_wolf" then 
+			gold = 25
+		elseif bpName == "gaia_herdable_sheep" then 
+			gold = 0
+		end
+		local current = Player_GetStateModelFloat(temmate.id, "master_hunter_bounty_total_rus")
+		Player_SetStateModelFloat(temmate.id, "master_hunter_bounty_total_rus", current + gold)
+		if Player_GetRaceName(killer.id) ~= "rus" then 
+			Player_AddResource(temmate.id, RT_Gold, gold)
+		end
+		
+	end
+    
+
+end
+
+function Archon_OnSquadSpawn(context)
+	print("xxxx")
+end
+
+
+
+
+
+
+function Archon_OnSelectionChanged(context) 
+    
+	print("xxxxxxxxxxxx")
+end
+
+
+function Archon_OnSubSelectionChanged(context)
+	print("xxxxxxx")
+	
+end
+
+
+teammate_details = {
+	pop = 0,
+	resources = {
+		
+	},
+}
+
+function Archon_UpdateResourceUI()
+	if UI_IsReplay() or localPlayer.role == nil then 
+		return 
+	end
+	local teammate = Archon_GetMyTeammate(localPlayer.id)
+	teammate_details.pop = tostring(math.ceil(Player_GetCurrentPopulation(teammate.id, CT_Personnel)))
+	teammate_details.resources[1].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food)))
+	teammate_details.resources[2].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood)))
+	teammate_details.resources[3].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold)))
+	teammate_details.resources[4].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone)))
+	
+	teammate_details.resources[1].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food)))
+	teammate_details.resources[2].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood)))
+	teammate_details.resources[3].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold)))
+	teammate_details.resources[4].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone)))
+	UI_SetDataContext("teammate_res_ui", teammate_details)
+end
+
+function Archon_CreateResourceUI()
+	if UI_IsReplay() or localPlayer.role == nil then 
+		return 
+	end
+	teammate_details.changeEntityCommand = UI_CreateCommand("EntityExchange_Changes")
+	teammate_details.chengeEntityButtonVisible = Archon_IsAllowEntityConvert() and Archon_IsCivilArmy()
+	teammate_details.toolTips = Loc_GetString("$ca89a0a6a8c146e5a17b0a68baf18e49:53")
+	
+	local teammate = Archon_GetMyTeammate(localPlayer.id)
+	teammate_details.pop = tostring(Player_GetCurrentPopulation(teammate.id, CT_Personnel))
+	local resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_food_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food))),
+		villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_wood_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_gold_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_stone_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	local xaml = [[<StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin = "0,70"  
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:WPFGUI.HUD.Controls" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:engineSharedEffects="clr-namespace:WPFGUI.Shared.Effects;assembly=EngineUI.Shaders" xmlns:engineUtility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI"
+                    xmlns:esControls="clr-namespace:WPFGUI.Shared.Controls;assembly=EngineUI" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:model="clr-namespace:HUDModelTypes" xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:utility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI" xmlns:wm="clr-namespace:WPFGUI.Shared.MarkupExtensions;assembly=EngineUI"
+                    mc:Ignorable="d">
+	
+	<StackPanel Margin="10,0"  HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+
+            <!--  enemy icon  -->
+            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
+                   Source="pack://application:,,,/WPFGUI;component/icons/resources/resource_villager.png" />
+			<TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                       Text="{Binding [pop]}">
+            </TextBlock>
+	</StackPanel>
+	
+	<ItemsControl ItemsSource="{Binding [resources]}">
+		<ItemsControl.ItemTemplate>
+			<DataTemplate>  
+				<StackPanel Margin="10,0"  HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+
+                            <!--  enemy icon  -->
+                            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
+                                   Source="{Binding [icon]}" />
+							<TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text="{Binding [amount]}">
+                            </TextBlock>
+							<TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text=" | ">
+                            </TextBlock>
+							 <TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text="{Binding [villagerCount]}">
+                            </TextBlock>
+							
+				</StackPanel>
+			</DataTemplate>
+			</ItemsControl.ItemTemplate>
+		</ItemsControl>
+		
+	<StackPanel.Resources>
+		<Style x:Key="TributeToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="HasDropShadow" Value="True" />
+			<Setter Property="SnapsToDevicePixels" Value="true" />
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToolTip}">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+		
+	</StackPanel.Resources>
+	<Button Visibility="{Binding [chengeEntityButtonVisible], Converter={StaticResource BoolToVis}}"
+            Command="{Binding [changeEntityCommand]}"
+			width="30" height="30"
+            ToolTipService.InitialShowDelay="0" ToolTipService.ShowDuration="86400000">  
+        <Button.Content>
+			<Grid>
+				<Image Source="pack://application:,,,/WPFGUI;component/icons/races/common/abilities/convert.png"
+					    Width="32">
+					<Image.Effect>
+						<DropShadowEffect BlurRadius="6" Direction="-71.5"
+	                                      Opacity="0.6" ShadowDepth="3"
+	                                      Color="Black" />
+					</Image.Effect>
+				</Image>
+			</Grid>
+		</Button.Content>
+        <Button.ToolTip>
+            <ToolTip MaxWidth="300"
+                     Placement="Bottom"
+                     Style="{StaticResource TributeToolTipStyle}"
+                     VerticalOffset="6">
+                <ContentControl Style="{StaticResource HUDTooltipBorderStyle}">
+                    <TextBlock Style="{StaticResource HUDGray80BodyTextBlock14ptStyle}"
+                               Text="{Binding [toolTips]}"
+                               TextWrapping="Wrap" />
+                </ContentControl>
+            </ToolTip>
+        </Button.ToolTip>
+    </Button>
+
+
+	</StackPanel>
+	]]
+	
+	UI_AddChild("ScarDefault", "XamlPresenter", "teammate_res_ui", { IsHitTestVisible = true, Xaml = xaml, DataContext = UI_CreateDataContext(teammate_details) })
+	
+end
+
+
+
+

@@ -1,0 +1,20 @@
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+Core_RegisterModule("AiEcnomy")
+
+function AiEcnomy_OnInit()
+	Rule_AddGlobalEvent(RallyPoint_ListenForRallyPoint, GE_EntityCommandIssued)
+end
+
+
+
+function AiEcnomy_Start()
+
+end
+
+
+function AiEcnomy_OnGameOver()
+	
+end

@@ -1,0 +1,28 @@
+<DataWarehouse>
+	<!--archon/-->
+	<DataObject Name="archon" Type="Mod" Id="7683076926940304573" Version="1">
+		<DataProperty Name="m_description" Type="Object">
+			<DataValue Name="util::ReflectLocString">13291477918467411649</DataValue>
+			<!--archon/util::ReflectLocString/-->
+			<DataObject Name="" Type="util::ReflectLocString" Id="13291477918467411649" OwnerId="7683076926940304573">
+				<DataProperty Name="m_modPart2" Type="UInt32" Value="1745517473"/>
+				<DataProperty Name="m_modPart3" Type="UInt32" Value="1234104762"/>
+				<DataProperty Name="m_modPart0" Type="UInt32" Value="3398017190"/>
+				<DataProperty Name="m_modPart1" Type="UInt32" Value="1189456065"/>
+				<DataProperty Name="m_locStringKey" Type="Int32" Value="2"/>
+			</DataObject>
+		</DataProperty>
+		<DataProperty Name="m_name" Type="Object">
+			<DataValue Name="util::ReflectLocString">1114254542299731336</DataValue>
+			<!--archon/util::ReflectLocString/-->
+			<DataObject Name="" Type="util::ReflectLocString" Id="1114254542299731336" OwnerId="7683076926940304573">
+				<DataProperty Name="m_modPart2" Type="UInt32" Value="1745517473"/>
+				<DataProperty Name="m_modPart3" Type="UInt32" Value="1234104762"/>
+				<DataProperty Name="m_modPart0" Type="UInt32" Value="3398017190"/>
+				<DataProperty Name="m_modPart1" Type="UInt32" Value="1189456065"/>
+				<DataProperty Name="m_locStringKey" Type="Int32" Value="1"/>
+			</DataObject>
+		</DataProperty>
+	</DataObject>
+</DataWarehouse>
+

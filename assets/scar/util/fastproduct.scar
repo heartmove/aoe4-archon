@@ -1,0 +1,66 @@
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+import("util/squad_type_util.scar")
+import("util/unit_type_util.scar")
+
+
+Core_RegisterModule("FastProduct")
+
+function FastProduct_OnInit()
+	Rule_AddOneShot(FastProduct_ResetLordProductSpeed, 60*10)
+end
+
+
+
+function FastProduct_Start()
+	for i,player in pairs(PLAYERS) do
+		if player.role == "lord" then
+			-- UI_CreateEventCue("主公快速生产", nil, "", "", "sfx_ui_event_queue_high_priority_play")
+			FastProduct_ModifyProductSpeed(player, 0.85)
+			break
+		end
+	end
+	for i,player in pairs(PLAYERS) do
+		-- UI_CreateEventCue("主公快速生产", nil, "", "", "sfx_ui_event_queue_high_priority_play")
+		FastProduct_ModifyProductSpeed(player, 0.85)
+	end
+end
+
+function FastProduct_ResetLordProductSpeed()
+	for i,player in pairs(PLAYERS) do
+		if player.role == "lord" then
+			-- UI_CreateEventCue("主公快速生产还原", nil, "", "", "sfx_ui_event_queue_high_priority_play")
+			FastProduct_ModifyProductSpeed(player, 100/85)
+			break
+		end
+	end
+end
+
+
+function FastProduct_ModifyProductSpeed(player, factor)
+	local unitTypes = {}
+	for i, t in pairs(UNIT_TYPE_DATA) do
+		table.insert(unitTypes, t.value)
+	end
+	local entityBps = BP_GetEntityBlueprintsWithType(unitTypes)
+	for j, bp in pairs(entityBps) do
+		Modify_EntityBuildTime(player.id, bp, factor)
+	end
+end
+
+
+function FastProduct_ModifyProductSpeedByPlayerId(playerId, factor)
+	local unitTypes = {}
+	for i, t in pairs(UNIT_TYPE_DATA) do
+		table.insert(unitTypes, t.value)
+	end
+	local entityBps = BP_GetEntityBlueprintsWithType(unitTypes)
+	for j, bp in pairs(entityBps) do
+		Modify_EntityBuildTime(playerId, bp, factor)
+	end
+end
+
+function FastProduct_OnGameOver()
+	
+end

@@ -1,0 +1,234 @@
+import("cardinal.scar")							-- Contains sfx references, UI templates, and Civ/Age helper functions
+import("ScarUtil.scar")							-- Contains game helper functions
+
+
+Core_RegisterModule("EntityExchange")
+
+function EntityExchange_OnInit()
+	Network_RegisterEvent("EntityExchange_ChangeEntityNtw")
+	Network_RegisterEvent("EntityExchange_ChangeSquadNtw")
+	--Rule_AddInterval(EntityExchange_ChangeEnglishTower, 1)
+end
+
+
+
+function EntityExchange_Start()
+	
+end
+
+
+function EntityExchange_OnGameOver()
+	Network_RemoveEvent("EntityExchange_ChangeEntityNtw")
+	Network_RemoveEvent("EntityExchange_ChangeSquadNtw")
+end
+
+
+function EntityExchange_ChangeNtw(playerID, data)
+	local chunks = string.split(data ,"|")
+	if #chunks == 0 then 
+		return
+	end
+	local eg = EGroup_CreateIfNotFound("testchangeentity")
+	for i,eid in pairs(chunks) do 
+		EGroup_Add(eg, Entity_FromID(eid))
+	end
+	EGroup_SetPlayerOwner(eg, playerID)
+end
+
+function EntityExchange_ChangeEnglishTower()
+	if not _mod.enable_english_tower_owner_change then 
+		return
+	end
+	local eg = EGroup_CreateIfNotFound("test1xxvcxv")
+	Misc_GetSelectedEntities(eg, false)
+	local count = EGroup_Count(eg)
+	local flag = false 
+	if count > 0 then
+		local entity = EGroup_GetEntityAt(eg, 1)
+		if World_OwnsEntity(entity) then 
+			return 
+		end
+		local owner = Entity_GetPlayerOwner(entity)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		local data = nil 
+		if owner ~= localPlayer.id and rel == R_ALLY then
+			local ownerRace = Player_GetRaceName(owner)
+			local myRace = Player_GetRaceName(localPlayer.id)
+			-- 只有都是英格兰时才触发
+			if ownerRace ~= "english" or myRace ~= "english" then
+				return
+			end
+			-- 只保留塔
+			for i = count, 1 do 
+				local e = EGroup_GetEntityAt(eg, i)
+				if not World_OwnsEntity(e) and Entity_IsTower(e) then 
+					if data == nil then 
+						data = Entity_GetID(e)
+					else
+						data = data .. "|" ..   Entity_GetID(e)
+					end
+				end
+			end
+			Network_CallEvent("EntityExchange_ChangeNtw", data)
+		end 	
+	end
+	EGroup_Clear(eg)
+end
+
+
+function EntityExchange_Changes()
+	EntityExchange_ChangeEntity()
+	EntityExchange_ChangeSquad()
+end
+
+
+function Entity_AllowConvert(entity)
+	return Archon_IsMiliratyBuildings(entity) or Entity_IsTower(entity) or Entity_IsOfType(entity, "mobile_building")
+end
+
+
+-- 攻城单位
+TYPE_SIEGE = {"siege", "scout", "scar_handcannon", "scar_bombard", "monk"}
+
+-- 海军单位
+TYPE_NAVAL = {"naval_unit"}
+
+-- 单位是否允许转换
+function Squad_AllowConvert(squad)
+	for i, t in pairs(TYPE_SIEGE) do
+		if Squad_IsOfType(squad, t) then 
+			return true
+		end
+	end
+	for i, t in pairs(TYPE_NAVAL) do
+		if Squad_IsOfType(squad, t) then 
+			return true
+		end
+	end
+	return false 
+end 
+
+
+function EntityExchange_ChangeSquad()
+	local sg = SGroup_CreateIfNotFound("test2xxvcxv")
+	SGroup_Clear(sg)
+	Misc_GetSelectedSquads(sg, false)
+	local count = SGroup_Count(sg)
+	local flag = false 
+	if count > 0 then
+		local squad = SGroup_GetSquadAt(sg, 1)
+		if World_OwnsSquad(squad) then 
+			return 
+		end
+		local owner = Squad_GetPlayerOwner(squad)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		local data = nil 
+		if rel == R_ALLY then
+			local ownerRace = Player_GetRaceName(owner)
+			local myRace = Player_GetRaceName(localPlayer.id)
+			
+			for i = count, 1, -1 do 
+				local s = SGroup_GetSquadAt(sg, i)
+				-- 不能改变归属权的是自然单位、村民、命官、
+				if not World_OwnsSquad(s) and Squad_AllowConvert(s)  then 
+					if data == nil then 
+						data = Squad_GetID(s)
+					else
+						data = data .. "|" ..   Squad_GetID(s)
+					end
+				end
+			end
+			if data ~= nil then
+				print("squad:" .. data)
+				Network_CallEvent("EntityExchange_ChangeSquadNtw", data)
+			end
+
+		end 	
+	end
+	SGroup_Clear(sg)
+end
+
+
+
+function EntityExchange_ChangeEntityNtw(playerID, data)
+	local chunks = string.split(data ,"|")
+	if #chunks == 0 then 
+		return
+	end
+	local eg = EGroup_CreateIfNotFound("test3changeentity"..playerID.PlayerID)
+	EGroup_Clear(eg)
+	local ownerId = nil
+	for i,eid in pairs(chunks) do 
+		local entity = Entity_FromID(eid)
+		if ownerId == nil then 
+			ownerId = Entity_GetPlayerOwner(entity)
+		end
+		EGroup_Add(eg, entity)
+	end
+	if ownerId == nil then 
+		return
+	end
+	local teammate = Archon_GetMyTeammate(ownerId)
+	EGroup_SetPlayerOwner(eg, teammate.id)
+end
+
+function EntityExchange_ChangeSquadNtw(playerID, data)
+	local chunks = string.split(data ,"|")
+	if #chunks == 0 then 
+		return
+	end
+	local sg = SGroup_CreateIfNotFound("test2changeentity"..playerID.PlayerID)
+	SGroup_Clear(sg)
+	local ownerId = nil
+	for i,sid in pairs(chunks) do 
+		local squad = Squad_FromID(sid)
+		if ownerId == nil then 
+			ownerId = Squad_GetPlayerOwner(squad)
+		end
+		SGroup_Add(sg, squad)
+	end
+	if ownerId == nil then 
+		return
+	end
+	local teammate = Archon_GetMyTeammate(ownerId)
+	SGroup_SetPlayerOwner(sg, teammate.id)
+end
+
+
+
+function EntityExchange_ChangeEntity()
+	local eg = EGroup_CreateIfNotFound("test12xxvcxv")
+	EGroup_Clear(eg)
+	Misc_GetSelectedEntities(eg, false)
+	local count = EGroup_Count(eg)
+	local flag = false 
+	if count > 0 then
+		local entity = EGroup_GetEntityAt(eg, 1)
+		if World_OwnsEntity(entity) then
+			return 
+		end
+		local owner = Entity_GetPlayerOwner(entity)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		local data = nil 
+		if rel == R_ALLY then
+			local ownerRace = Player_GetRaceName(owner)
+			local myRace = Player_GetRaceName(localPlayer.id)
+			
+			for i = count, 1, -1 do 
+				local e = EGroup_GetEntityAt(eg, i)
+				if not World_OwnsEntity(e) and Entity_AllowConvert(e)  then 
+					if data == nil then 
+						data = Entity_GetID(e)
+					else
+						data = data .. "|" ..   Entity_GetID(e)
+					end
+				end
+			end
+			if data ~= nil  then 
+				print("entity:" .. data)
+				Network_CallEvent("EntityExchange_ChangeEntityNtw", data)
+			end
+		end 	
+	end
+	EGroup_Clear(eg)
+end
