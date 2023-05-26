@@ -426,3 +426,101 @@ function Role_SpawnScout(player, pos)
 	UnitEntry_DeploySquads(assignPlayer.id, sg_scout, {{sbp = sbp_scout, numSquads = 1 }}, spawn_pos)
 		
 end
+
+
+
+-- 更新人口数
+function Archon_UpdatePopCap(player) 
+	
+	if not Archon_IsCivilArmy() or not Archon_CivilArmyLimited() then
+		return
+	end
+	local roles = Archon_GetPlayerTeamRole(player)
+	local civil = roles.ROLE_CIVIL
+	local general = roles.ROLE_GENERAL
+	local popCap = player.popCap
+	
+	-- 如果当前人口数是大于团队最大人口数
+	if popCap > TEAM_POP_CAP then 
+		popCap = TEAM_POP_CAP
+	end
+
+	local civilPop = Player_GetCurrentPopulation(civil.id, CT_Personnel)
+	local generalPop = Player_GetCurrentPopulation(general.id, CT_Personnel)
+	local currentPop = civilPop + generalPop 
+	
+	-- 当两者人口之和大于当前人口上限时，需要先将文官人口填满，再填满武将人口
+	--if not player.isHuman and popCap <= 10 then 
+	   --ignore...
+	--else 
+		if currentPop >= popCap then 
+			Player_SetPopCapOverride(civil.id, civilPop)
+			local tempPop = popCap - civilPop
+			if tempPop < 1 then 
+				tempPop = 0
+			end
+			Player_SetPopCapOverride(general.id, tempPop)
+			
+			
+		else 
+			-- 当两者人口之和小于当前人口上限时，平分空闲人口
+			local freePopCap = popCap - currentPop
+			local tempGeneralPopCap = math.ceil(freePopCap/2)
+			
+			
+			Player_SetPopCapOverride(general.id, generalPop + tempGeneralPopCap)
+			Player_SetPopCapOverride(civil.id, civilPop + freePopCap - tempGeneralPopCap)
+		end
+	--end
+	
+	--print("civil Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(civil.id, CT_Personnel))
+	--print("general Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(general.id, CT_Personnel))
+end
+	
+	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(player.id, CT_Personnel))
+	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(player.id, CT_Personnel))
+	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(player.id, CT_Personnel))
+
+
+function Archon_GetCiviMaxPopCap(player)
+	
+	if Player_GetRace(player.id) == "mongol" then 
+		return MAX_POP_CAP
+	end
+	local popCap = 0
+	
+	local types = {"town_center", "scar_house", "house"}
+	for i, t in pairs(types) do 
+		local eg = Player_GetEntitiesFromType(player.id, t)
+		local total = EGroup_Count(eg)
+		for i=1, total do
+			local entity = EGroup_GetEntityAt(eg, i)
+			if not Entity_IsUnderConstruction(entity) and Entity_IsValid(Entity_GetID(entity)) and Entity_IsAlive(entity) then 
+				local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
+				if entityPopCap ~= nil then
+					popCap = popCap + entityPopCap
+				end
+			end
+		end
+	end
+	
+	return math.min(popCap, MAX_POP_CAP)
+end
+
+
+function Archon_GetPlayerTeamRole(player)
+	local teammate = Archon_GetMyTeammate(player.id)
+	local civil = player 
+	local general = teammate
+	if player.role ~= ROLE_CIVIL then 
+		civil = teammate
+		general = player
+	end
+	
+	return {
+		ROLE_CIVIL = civil,
+		ROLE_GENERAL = general,
+	}
+	
+end

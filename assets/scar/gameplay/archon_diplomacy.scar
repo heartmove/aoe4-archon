@@ -1305,19 +1305,19 @@ function Diplomacy_SendTributeNtw(playerID, data)
 			}		
 			table.insert(tribute_data, tribute)
 						
-			if tribute.food > 0 then
+			if tribute.food > 0  and EffectiveTribute(tribute.food) <= Player_GetResource(sender.id, RT_Food) then
 				Player_GiftResource(receiver.id, RT_Food, tribute.food)
 				Player_GiftResource(sender.id, RT_Food, -EffectiveTribute(tribute.food))
 			end
-			if tribute.wood > 0 then
+			if tribute.wood > 0 and EffectiveTribute(tribute.wood) <= Player_GetResource(sender.id, RT_Wood) then
 				Player_GiftResource(receiver.id, RT_Wood, tribute.wood)
 				Player_GiftResource(sender.id, RT_Wood, -EffectiveTribute(tribute.wood))
 			end
-			if tribute.gold > 0 then
+			if tribute.gold > 0 and EffectiveTribute(tribute.gold) <= Player_GetResource(sender.id, RT_Gold) then
 				Player_GiftResource(receiver.id, RT_Gold, tribute.gold)
 				Player_GiftResource(sender.id, RT_Gold, -EffectiveTribute(tribute.gold))
 			end
-			if tribute.stone > 0 then
+			if tribute.stone > 0 and EffectiveTribute(tribute.stone) <= Player_GetResource(sender.id, RT_Stone) then
 				Player_GiftResource(receiver.id, RT_Stone, tribute.stone)
 				Player_GiftResource(sender.id, RT_Stone, -EffectiveTribute(tribute.stone))
 			end

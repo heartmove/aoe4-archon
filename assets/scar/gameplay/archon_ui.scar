@@ -1,0 +1,170 @@
+
+
+
+
+teammate_details = {
+	pop = 0,
+	resources = {
+		
+	},
+}
+
+function Archon_UpdateResourceUI()
+	if UI_IsReplay() or localPlayer.role == nil then 
+		return 
+	end
+	local teammate = Archon_GetMyTeammate(localPlayer.id)
+	teammate_details.pop = tostring(math.ceil(Player_GetCurrentPopulation(teammate.id, CT_Personnel)))
+	teammate_details.resources[1].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food)))
+	teammate_details.resources[2].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood)))
+	teammate_details.resources[3].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold)))
+	teammate_details.resources[4].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone)))
+	
+	teammate_details.resources[1].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food)))
+	teammate_details.resources[2].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood)))
+	teammate_details.resources[3].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold)))
+	teammate_details.resources[4].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone)))
+	UI_SetDataContext("teammate_res_ui", teammate_details)
+end
+
+function Archon_CreateResourceUI()
+	if UI_IsReplay() or localPlayer.role == nil then 
+		return 
+	end
+	teammate_details.changeEntityCommand = UI_CreateCommand("EntityExchange_Changes")
+	teammate_details.chengeEntityButtonVisible = Archon_IsAllowEntityConvert() and Archon_IsCivilArmy()
+	teammate_details.toolTips = Loc_GetString("$ca89a0a6a8c146e5a17b0a68baf18e49:53")
+	
+	local teammate = Archon_GetMyTeammate(localPlayer.id)
+	teammate_details.pop = tostring(Player_GetCurrentPopulation(teammate.id, CT_Personnel))
+	local resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_food_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food))),
+		villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_wood_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_gold_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	resource = {
+		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_stone_icon.png",
+		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone))),
+		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone))),
+	}
+	table.insert(teammate_details.resources, resource)
+	
+	local xaml = [[<StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin = "0,70"  
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:WPFGUI.HUD.Controls" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:engineSharedEffects="clr-namespace:WPFGUI.Shared.Effects;assembly=EngineUI.Shaders" xmlns:engineUtility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI"
+                    xmlns:esControls="clr-namespace:WPFGUI.Shared.Controls;assembly=EngineUI" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:model="clr-namespace:HUDModelTypes" xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:utility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI" xmlns:wm="clr-namespace:WPFGUI.Shared.MarkupExtensions;assembly=EngineUI"
+                    mc:Ignorable="d">
+	
+	<StackPanel Margin="10,0"  HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+
+            <!--  enemy icon  -->
+            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
+                   Source="pack://application:,,,/WPFGUI;component/icons/resources/resource_villager.png" />
+			<TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                       Text="{Binding [pop]}">
+            </TextBlock>
+	</StackPanel>
+	
+	<ItemsControl ItemsSource="{Binding [resources]}">
+		<ItemsControl.ItemTemplate>
+			<DataTemplate>  
+				<StackPanel Margin="10,0"  HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+
+                            <!--  enemy icon  -->
+                            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
+                                   Source="{Binding [icon]}" />
+							<TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text="{Binding [amount]}">
+                            </TextBlock>
+							<TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text=" | ">
+                            </TextBlock>
+							 <TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
+                                       Text="{Binding [villagerCount]}">
+                            </TextBlock>
+							
+				</StackPanel>
+			</DataTemplate>
+			</ItemsControl.ItemTemplate>
+		</ItemsControl>
+		
+	<StackPanel.Resources>
+		<Style x:Key="TributeToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="HasDropShadow" Value="True" />
+			<Setter Property="SnapsToDevicePixels" Value="true" />
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToolTip}">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+		
+	</StackPanel.Resources>
+	<Button Visibility="{Binding [chengeEntityButtonVisible], Converter={StaticResource BoolToVis}}"
+            Command="{Binding [changeEntityCommand]}"
+			width="30" height="30"
+            ToolTipService.InitialShowDelay="0" ToolTipService.ShowDuration="86400000">  
+        <Button.Content>
+			<Grid>
+				<Image Source="pack://application:,,,/WPFGUI;component/icons/races/common/abilities/convert.png"
+					    Width="32">
+					<Image.Effect>
+						<DropShadowEffect BlurRadius="6" Direction="-71.5"
+	                                      Opacity="0.6" ShadowDepth="3"
+	                                      Color="Black" />
+					</Image.Effect>
+				</Image>
+			</Grid>
+		</Button.Content>
+        <Button.ToolTip>
+            <ToolTip MaxWidth="300"
+                     Placement="Bottom"
+                     Style="{StaticResource TributeToolTipStyle}"
+                     VerticalOffset="6">
+                <ContentControl Style="{StaticResource HUDTooltipBorderStyle}">
+                    <TextBlock Style="{StaticResource HUDGray80BodyTextBlock14ptStyle}"
+                               Text="{Binding [toolTips]}"
+                               TextWrapping="Wrap" />
+                </ContentControl>
+            </ToolTip>
+        </Button.ToolTip>
+    </Button>
+
+
+	</StackPanel>
+	]]
+	
+	UI_AddChild("ScarDefault", "XamlPresenter", "teammate_res_ui", { IsHitTestVisible = true, Xaml = xaml, DataContext = UI_CreateDataContext(teammate_details) })
+	
+end
+
+

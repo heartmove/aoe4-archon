@@ -92,3 +92,41 @@ function Entity_IsTower(entity)
 	end
 	return false
 end
+
+
+function Archon_GetClosetEntity(egroup, position) 
+	local closest_distance_sqr = 1000000000000
+	local closest_entity = nil
+	
+	local _CheckEntity = function(gid, idx, eid)
+		if Entity_IsUnderConstruction(eid) or not Entity_IsValid(Entity_GetID(eid)) then 
+			return 
+		end
+		
+		if not Archon_IsMiliratyBuildings(eid) then 
+			return
+		end
+		
+		local entityPosition = Entity_GetPosition(eid)
+		if entityPosition == nil then 
+			return
+		end
+		local distance_sqr = World_DistanceSquaredPointToPoint(entityPosition, position)
+		if closest_entity == nil then 
+			closest_entity = eid
+			closest_distance_sqr = distance_sqr
+			return 
+		end
+		
+		if distance_sqr < closest_distance_sqr then
+			closest_distance_sqr = distance_sqr
+			closest_entity = eid
+		end
+		
+	end
+	EGroup_ForEach(egroup, _CheckEntity)
+	
+	return closest_entity
+	
+end
+

@@ -10,6 +10,7 @@ import("util/util.scar")
 import("gameplay/rally_point.scar")
 import("gameplay/role.scar")
 import("replay/ObserverUI.scar")
+import("gameplay/archon_ui.scar")
 
 import("startconditions/archon_nomad_start.scar")
 
@@ -119,8 +120,8 @@ function Archon_OnGameSetup()
 	end
 	
 	
-	for key, value in pairs(_mod.options.common_settings.team_pop_cap.enum_items) do
-		if value == _mod.options.common_settings.team_pop_cap.enum_value then
+	for key, value in pairs(_mod.options.special_settings.team_pop_cap.enum_items) do
+		if value == _mod.options.special_settings.team_pop_cap.enum_value then
 			local val = string.sub(key,  5)
 			TEAM_POP_CAP = tonumber(val)
 			break
@@ -132,11 +133,11 @@ function Archon_OnGameSetup()
 	
 	_mod.enable_civil_army = _mod.options.common_settings.enable_civil_army
 	_mod.enable_single_race = _mod.options.common_settings.enable_single_race
-	_mod.enable_civil_army_no_limit = _mod.options.common_settings.enable_civil_army_no_limit
+	_mod.enable_civil_army_no_limit = _mod.options.special_settings.enable_civil_army_no_limit
 	Role_SetAiTeamNoRole( _mod.options.common_settings.enable_ai_team_no_role)
 	Role_SetSingleTeamNoRole( _mod.options.common_settings.enable_single_team_no_role) 
 	--_mod.enble_color_role = _mod.options.role_settings.enble_color_role
-	_mod.keep_general_resource = _mod.options.special_settings.keep_general_resource
+	_mod.keep_general_resource = _mod.options.common_settings.keep_general_resource
 	--_mod.enable_control_teammate_squad = _mod.options.common_settings.enable_control_teammate_squad	
 	_mod.enable_nomad_start = _mod.options.common_settings.enable_nomad_start	
 	_mod.enable_king_mode = _mod.options.common_settings.enable_king_mode	
@@ -166,6 +167,7 @@ function Archon_IsAllowEntityConvert()
 end
 
 function Archon_CivilArmyLimited()
+	
 	return _mod.enable_civil_army_no_limit
 end
 
@@ -241,60 +243,6 @@ function Archon_OnPlayerResourcesAwarded(context)
 	print("Archon_OnPlayerResourcesAwarded.....")
 end
 
-function Archon_SelectEntity()
-	local sg = SGroup_CreateIfNotFound("testxxvcxv")
-	Misc_GetSelectedSquads(sg, false)
-	local count = SGroup_Count(sg)
-	local flag = false 
-	if count > 0 then
-		
-		local squad = SGroup_GetSquadAt(sg, 1)
-		if World_OwnsSquad(squad) then 
-			return 
-		end
-		local owner = Squad_GetPlayerOwner(squad)
-		local rel = Player_ObserveRelationship(localPlayer.id, owner)
-		if owner ~= localPlayer.id and rel == R_ALLY then
-			for i = count, 1 do 
-				local s = SGroup_GetSquadAt(sg, i)
-				if Squad_IsOfType(s, "villager") or World_OwnsSquad(s) or Squad_IsOfType(s, "leader")  then 
-					SGroup_Remove(sg, s)
-				end
-			end
-			SGroup_SetPlayerOwner(sg, localPlayer.id)
-		end 
-		return
-		SGroup_Clear(sg)
-	end
-
-	
-	-- Archon_ChangeEntityOwner()
-end
-
-function Archon_ChangeEntityOwner()
-	local eg = EGroup_CreateIfNotFound("test1xxvcxv")
-	Misc_GetSelectedEntities(eg, false)
-	local count = EGroup_Count(eg)
-	local flag = false 
-	if count > 0 then
-		local entity = EGroup_GetEntityAt(eg, 1)
-		if World_OwnsEntity(entity) then 
-			return 
-		end
-		local owner = Entity_GetPlayerOwner(entity)
-		local rel = Player_ObserveRelationship(localPlayer.id, owner)
-		if owner ~= localPlayer.id and rel == R_ALLY then
-			for i = count, 1 do 
-				local e = EGroup_GetEntityAt(eg, i)
-				if Entity_IsOfType(e, "landmark") or Entity_IsOfType(e, "wonder") or Entity_IsOfType(e, "resource_drop_off")  or World_OwnsEntity(e) then 
-					EGroup_Remove(eg, e)
-				end
-			end
-			EGroup_SetPlayerOwner(eg, localPlayer.id)
-		end 	
-	end
-	EGroup_Clear(eg)
-end
 
 
 function Archon_OnBuildItemStart(context)
@@ -492,13 +440,18 @@ function Archon_SyncData()
 					SyncStateModelFloat(player.id, teammate.id, "istanbul_observatory_influence_ott")
 					
 					
-					SyncStateModelInt(player.id, teammate.id, "military_school_limit_ott")		
-					SyncStateModelInt(player.id, teammate.id, "janissary_company_ott")		
-					SyncStateModelInt(player.id, teammate.id, "janissary_increase_ott")		
-					SyncStateModelInt(player.id, teammate.id, "total_viziers_ott")		
-					SyncStateModelInt(player.id, teammate.id, "vizier_limit_ott")		
-					SyncStateModelInt(player.id, teammate.id, "military_school_count")		
-					SyncStateModelInt(player.id, teammate.id, "janissary_spawn_count_ott")		
+					--SyncStateModelInt(player.id, teammate.id, "military_school_limit_ott")	
+					Player_SetStateModelInt(teammate.id, "military_school_limit_ott", 0)
+					--SyncStateModelInt(player.id, teammate.id, "janissary_company_ott")
+					--SyncStateModelInt(player.id, teammate.id, "janissary_increase_ott")		
+					--SyncStateModelInt(player.id, teammate.id, "total_viziers_ott")		
+					--SyncStateModelInt(player.id, teammate.id, "vizier_limit_ott")		
+					--SyncStateModelInt(player.id, teammate.id, "military_school_count")		
+					--SyncStateModelInt(player.id, teammate.id, "janissary_spawn_count_ott")
+					
+					Player_SetStateModelInt(teammate.id, "military_school_count", 5)
+					
+					
 				elseif race == "rus" then 
 					SyncStateModelBool(player.id, teammate.id, "kremlin_armoury_constructed_rus")
 						
@@ -759,7 +712,6 @@ function Archon_OnBuildItemComplete(context)
 				return
 			end
 			
-			
 			if Archon_IsCivilArmy() then 
 				-- 如果是ai
 				if not squadOwner.isHuman and Squad_IsOfType(squad_id, "scout") then 
@@ -815,7 +767,7 @@ function Archon_OnBuildItemComplete(context)
 		elseif Squad_IsOfType(squad_id, "scar_official") then 
 			-- 超过五个就kill，并返还资源
 			 local sg = Player_GetSquadsFromType(squadOwner.id, "scar_official")
-			 if SGroup_Count(sg) > 5 then
+			 if SGroup_Count(sg) > 4 then
 				Squad_Kill(squad_id)
 				local resource = Player_GetSquadBPCost(squadOwner.id, bp)
 				Player_AddResources(squadOwner.id, resource)
@@ -824,42 +776,6 @@ function Archon_OnBuildItemComplete(context)
 	end
 end
 
-
-function Archon_GetClosetEntity(egroup, position) 
-	local closest_distance_sqr = 1000000000000
-	local closest_entity = nil
-	
-	local _CheckEntity = function(gid, idx, eid)
-		if Entity_IsUnderConstruction(eid) or not Entity_IsValid(Entity_GetID(eid)) then 
-			return 
-		end
-		
-		if not Archon_IsMiliratyBuildings(eid) then 
-			return
-		end
-		
-		local entityPosition = Entity_GetPosition(eid)
-		if entityPosition == nil then 
-			return
-		end
-		local distance_sqr = World_DistanceSquaredPointToPoint(entityPosition, position)
-		if closest_entity == nil then 
-			closest_entity = eid
-			closest_distance_sqr = distance_sqr
-			return 
-		end
-		
-		if distance_sqr < closest_distance_sqr then
-			closest_distance_sqr = distance_sqr
-			closest_entity = eid
-		end
-		
-	end
-	EGroup_ForEach(egroup, _CheckEntity)
-	
-	return closest_entity
-	
-end
 
 
 function Archon_OnUpgradeComplete(context) 
@@ -944,7 +860,7 @@ function Archon_OnEntityKilled(context)
 		
 		if BP_GetName(bp) == "building_military_school_ott" then 
 			-- 军事学院被摧毁时，需要给可建造的加1
-			if player.role == ROLE_CIVIL then
+			if player.role == ROLE_GENERAL then
 				local teammate = Archon_GetMyTeammate(player.id)
 				local count = Player_GetStateModelInt(teammate.id, "military_school_limit_ott")
 				Player_SetStateModelInt(teammate.id, "military_school_limit_ott", count + 1)
@@ -978,101 +894,6 @@ function Archon_OnEntityKilled(context)
 	end
 end
 
--- 更新人口数
-function Archon_UpdatePopCap(player) 
-	
-	if not Archon_IsCivilArmy() or not Archon_CivilArmyLimited() then
-		return
-	end
-	local roles = Archon_GetPlayerTeamRole(player)
-	local civil = roles.ROLE_CIVIL
-	local general = roles.ROLE_GENERAL
-	local popCap = player.popCap
-	
-	-- 如果当前人口数是大于团队最大人口数
-	if popCap > TEAM_POP_CAP then 
-		popCap = TEAM_POP_CAP
-	end
-
-	local civilPop = Player_GetCurrentPopulation(civil.id, CT_Personnel)
-	local generalPop = Player_GetCurrentPopulation(general.id, CT_Personnel)
-	local currentPop = civilPop + generalPop 
-	
-	-- 当两者人口之和大于当前人口上限时，需要先将文官人口填满，再填满武将人口
-	--if not player.isHuman and popCap <= 10 then 
-	   --ignore...
-	--else 
-		if currentPop >= popCap then 
-			Player_SetPopCapOverride(civil.id, civilPop)
-			local tempPop = popCap - civilPop
-			if tempPop < 1 then 
-				tempPop = 0
-			end
-			Player_SetPopCapOverride(general.id, tempPop)
-			
-			
-		else 
-			-- 当两者人口之和小于当前人口上限时，平分空闲人口
-			local freePopCap = popCap - currentPop
-			local tempGeneralPopCap = math.ceil(freePopCap/2)
-			
-			
-			Player_SetPopCapOverride(general.id, generalPop + tempGeneralPopCap)
-			Player_SetPopCapOverride(civil.id, civilPop + freePopCap - tempGeneralPopCap)
-		end
-	--end
-	
-	--print("civil Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(civil.id, CT_Personnel))
-	--print("general Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(general.id, CT_Personnel))
-end
-	
-	--print("Player_GetMaxPopulationCap:" .. Player_GetMaxPopulationCap(player.id, CT_Personnel))
-	--print("Player_GetMaxPopulationCapOverride:" .. Player_GetMaxPopulationCapOverride(player.id, CT_Personnel))
-	--print("Player_GetCurrentPopulation:" .. Player_GetCurrentPopulation(player.id, CT_Personnel))
-	--print("Player_GetCurrentPopulationCap:" .. Player_GetCurrentPopulationCap(player.id, CT_Personnel))
-
-
-function Archon_GetCiviMaxPopCap(player)
-	
-	if Player_GetRace(player.id) == "mongol" then 
-		return MAX_POP_CAP
-	end
-	local popCap = 0
-	
-	local types = {"town_center", "scar_house", "house"}
-	for i, t in pairs(types) do 
-		local eg = Player_GetEntitiesFromType(player.id, t)
-		local total = EGroup_Count(eg)
-		for i=1, total do
-			local entity = EGroup_GetEntityAt(eg, i)
-			if not Entity_IsUnderConstruction(entity) and Entity_IsValid(Entity_GetID(entity)) and Entity_IsAlive(entity) then 
-				local entityPopCap = Entity_GetStateModelInt(entity, "population_cap_increase")
-				if entityPopCap ~= nil then
-					popCap = popCap + entityPopCap
-				end
-			end
-		end
-	end
-	
-	return math.min(popCap, MAX_POP_CAP)
-end
-
-
-function Archon_GetPlayerTeamRole(player)
-	local teammate = Archon_GetMyTeammate(player.id)
-	local civil = player 
-	local general = teammate
-	if player.role ~= ROLE_CIVIL then 
-		civil = teammate
-		general = player
-	end
-	
-	return {
-		ROLE_CIVIL = civil,
-		ROLE_GENERAL = general,
-	}
-	
-end
 
 function Archon_OnSquadKilled(context)
     
@@ -1129,7 +950,7 @@ function Archon_OnSquadKilled(context)
 	
 	local temmate = Archon_GetMyTeammate(killer.id)
 	
-	
+	-- 这里主要是处理罗斯的赏金，但因为只能获取到狼的击杀事件，所以就不完整
 	if killer.role == ROLE_GENERAL and Player_GetRaceName(temmate.id) == "rus" and Player_IsAlive(temmate.id) then 
 		local bpName = BP_GetName(Squad_GetBlueprint(squad))
 		local  gold = 0
@@ -1158,10 +979,6 @@ function Archon_OnSquadSpawn(context)
 end
 
 
-
-
-
-
 function Archon_OnSelectionChanged(context) 
     
 	print("xxxxxxxxxxxx")
@@ -1172,173 +989,6 @@ function Archon_OnSubSelectionChanged(context)
 	print("xxxxxxx")
 	
 end
-
-
-teammate_details = {
-	pop = 0,
-	resources = {
-		
-	},
-}
-
-function Archon_UpdateResourceUI()
-	if UI_IsReplay() or localPlayer.role == nil then 
-		return 
-	end
-	local teammate = Archon_GetMyTeammate(localPlayer.id)
-	teammate_details.pop = tostring(math.ceil(Player_GetCurrentPopulation(teammate.id, CT_Personnel)))
-	teammate_details.resources[1].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food)))
-	teammate_details.resources[2].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood)))
-	teammate_details.resources[3].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold)))
-	teammate_details.resources[4].amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone)))
-	
-	teammate_details.resources[1].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food)))
-	teammate_details.resources[2].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood)))
-	teammate_details.resources[3].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold)))
-	teammate_details.resources[4].villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone)))
-	UI_SetDataContext("teammate_res_ui", teammate_details)
-end
-
-function Archon_CreateResourceUI()
-	if UI_IsReplay() or localPlayer.role == nil then 
-		return 
-	end
-	teammate_details.changeEntityCommand = UI_CreateCommand("EntityExchange_Changes")
-	teammate_details.chengeEntityButtonVisible = Archon_IsAllowEntityConvert() and Archon_IsCivilArmy()
-	teammate_details.toolTips = Loc_GetString("$ca89a0a6a8c146e5a17b0a68baf18e49:53")
-	
-	local teammate = Archon_GetMyTeammate(localPlayer.id)
-	teammate_details.pop = tostring(Player_GetCurrentPopulation(teammate.id, CT_Personnel))
-	local resource = {
-		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_food_icon.png",
-		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Food))),
-		villagerCount = tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Food))),
-	}
-	table.insert(teammate_details.resources, resource)
-	
-	resource = {
-		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_wood_icon.png",
-		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Wood))),
-		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Wood))),
-	}
-	table.insert(teammate_details.resources, resource)
-	
-	resource = {
-		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_gold_icon.png",
-		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Gold))),
-		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Gold))),
-	}
-	table.insert(teammate_details.resources, resource)
-	
-	resource = {
-		icon = "pack://application:,,,/WPFGUI;component/icons/resources/resource_stone_icon.png",
-		amount = tostring(math.ceil(Player_GetResource(teammate.id, RT_Stone))),
-		villagerCount =  tostring(math.ceil(Player_GetNumGatheringSquads(teammate.id, RT_Stone))),
-	}
-	table.insert(teammate_details.resources, resource)
-	
-	local xaml = [[<StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin = "0,70"  
-	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:controls="clr-namespace:WPFGUI.HUD.Controls" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                    xmlns:engineSharedEffects="clr-namespace:WPFGUI.Shared.Effects;assembly=EngineUI.Shaders" xmlns:engineUtility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI"
-                    xmlns:esControls="clr-namespace:WPFGUI.Shared.Controls;assembly=EngineUI" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                    xmlns:model="clr-namespace:HUDModelTypes" xmlns:sys="clr-namespace:System;assembly=mscorlib"
-                    xmlns:utility="clr-namespace:WPFGUI.Shared.Utility;assembly=EngineUI" xmlns:wm="clr-namespace:WPFGUI.Shared.MarkupExtensions;assembly=EngineUI"
-                    mc:Ignorable="d">
-	
-	<StackPanel Margin="10,0"  HorizontalAlignment="Right"
-                                    Orientation="Horizontal">
-
-            <!--  enemy icon  -->
-            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
-                   Source="pack://application:,,,/WPFGUI;component/icons/resources/resource_villager.png" />
-			<TextBlock VerticalAlignment="Center"
-                       Style="{StaticResource nHUDBaseTextBlockStyle}"
-                       Text="{Binding [pop]}">
-            </TextBlock>
-	</StackPanel>
-	
-	<ItemsControl ItemsSource="{Binding [resources]}">
-		<ItemsControl.ItemTemplate>
-			<DataTemplate>  
-				<StackPanel Margin="10,0"  HorizontalAlignment="Right"
-                                    Orientation="Horizontal">
-
-                            <!--  enemy icon  -->
-                            <Image Effect="{StaticResource DropShadowTextStyle}"  Width="25" Height="25"
-                                   Source="{Binding [icon]}" />
-							<TextBlock VerticalAlignment="Center"
-                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
-                                       Text="{Binding [amount]}">
-                            </TextBlock>
-							<TextBlock VerticalAlignment="Center"
-                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
-                                       Text=" | ">
-                            </TextBlock>
-							 <TextBlock VerticalAlignment="Center"
-                                       Style="{StaticResource nHUDBaseTextBlockStyle}"
-                                       Text="{Binding [villagerCount]}">
-                            </TextBlock>
-							
-				</StackPanel>
-			</DataTemplate>
-			</ItemsControl.ItemTemplate>
-		</ItemsControl>
-		
-	<StackPanel.Resources>
-		<Style x:Key="TributeToolTipStyle" TargetType="{x:Type ToolTip}">
-            <Setter Property="HasDropShadow" Value="True" />
-			<Setter Property="SnapsToDevicePixels" Value="true" />
-            <Setter Property="OverridesDefaultStyle" Value="True" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ToolTip}">
-                        <ContentPresenter />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-		
-	</StackPanel.Resources>
-	<Button Visibility="{Binding [chengeEntityButtonVisible], Converter={StaticResource BoolToVis}}"
-            Command="{Binding [changeEntityCommand]}"
-			width="30" height="30"
-            ToolTipService.InitialShowDelay="0" ToolTipService.ShowDuration="86400000">  
-        <Button.Content>
-			<Grid>
-				<Image Source="pack://application:,,,/WPFGUI;component/icons/races/common/abilities/convert.png"
-					    Width="32">
-					<Image.Effect>
-						<DropShadowEffect BlurRadius="6" Direction="-71.5"
-	                                      Opacity="0.6" ShadowDepth="3"
-	                                      Color="Black" />
-					</Image.Effect>
-				</Image>
-			</Grid>
-		</Button.Content>
-        <Button.ToolTip>
-            <ToolTip MaxWidth="300"
-                     Placement="Bottom"
-                     Style="{StaticResource TributeToolTipStyle}"
-                     VerticalOffset="6">
-                <ContentControl Style="{StaticResource HUDTooltipBorderStyle}">
-                    <TextBlock Style="{StaticResource HUDGray80BodyTextBlock14ptStyle}"
-                               Text="{Binding [toolTips]}"
-                               TextWrapping="Wrap" />
-                </ContentControl>
-            </ToolTip>
-        </Button.ToolTip>
-    </Button>
-
-
-	</StackPanel>
-	]]
-	
-	UI_AddChild("ScarDefault", "XamlPresenter", "teammate_res_ui", { IsHitTestVisible = true, Xaml = xaml, DataContext = UI_CreateDataContext(teammate_details) })
-	
-end
-
 
 
 

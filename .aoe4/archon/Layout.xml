@@ -3,29 +3,32 @@
   <RootPanel Orientation="Horizontal">
     <LayoutAnchorablePaneGroup Orientation="Horizontal" DockWidth="412" FloatingWidth="300" FloatingHeight="800" FloatingLeft="200" FloatingTop="200">
       <LayoutAnchorablePane DockHeight="200" FloatingWidth="300" FloatingHeight="800" FloatingLeft="200" FloatingTop="200">
-        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Asset Explorer" IsSelected="True" ContentId="EssenceEditor.AssetExplorer" FloatingLeft="200" FloatingTop="200" FloatingWidth="300" FloatingHeight="800" LastActivationTimeStamp="05/22/2023 23:20:09" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="1" />
+        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Asset Explorer" IsSelected="True" ContentId="EssenceEditor.AssetExplorer" FloatingLeft="200" FloatingTop="200" FloatingWidth="300" FloatingHeight="800" LastActivationTimeStamp="05/26/2023 17:02:25" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="1" />
       </LayoutAnchorablePane>
     </LayoutAnchorablePaneGroup>
     <LayoutPanel Orientation="Vertical">
       <LayoutDocumentPane>
-        <LayoutDocument Title="Render" ContentId="EssenceEditor.Render" LastActivationTimeStamp="05/21/2023 15:35:23" />
-        <LayoutDocument Title="archon.locdb" IsSelected="True" IsLastFocusedDocument="True" ContentId="FileName|LocDB|assets\locdb\archon.locdb" ToolTip="F:\heartmove\Documents\archon\assets\locdb\archon.locdb" LastActivationTimeStamp="05/22/2023 21:33:28" />
-        <LayoutDocument Title="ai_ecnomy.scar" ContentId="FileName|Script|assets\scar\gameplay\ai_ecnomy.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\ai_ecnomy.scar" LastActivationTimeStamp="05/22/2023 20:29:16" />
-        <LayoutDocument Title="archon_diplomacy.scar" ContentId="FileName|Script|assets\scar\gameplay\archon_diplomacy.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\archon_diplomacy.scar" LastActivationTimeStamp="05/22/2023 20:29:17" />
-        <LayoutDocument Title="entity_convert.scar" ContentId="FileName|Script|assets\scar\gameplay\entity_convert.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\entity_convert.scar" LastActivationTimeStamp="05/22/2023 20:29:17" />
-        <LayoutDocument Title="rally_point.scar" ContentId="FileName|Script|assets\scar\gameplay\rally_point.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\rally_point.scar" LastActivationTimeStamp="05/22/2023 20:38:08" />
-        <LayoutDocument Title="archon.scar" ContentId="FileName|Script|assets\scar\winconditions\archon.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\winconditions\archon.scar" LastActivationTimeStamp="05/22/2023 21:32:34" />
-        <LayoutDocument Title="role.scar" ContentId="FileName|Script|assets\scar\gameplay\role.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\role.scar" LastActivationTimeStamp="05/22/2023 21:16:22" />
-        <LayoutDocument Title="fastproduct.scar" ContentId="FileName|Script|assets\scar\util\fastproduct.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\fastproduct.scar" LastActivationTimeStamp="05/22/2023 20:33:41" />
-        <LayoutDocument Title="archon_nomad_start.scar" ContentId="FileName|Script|assets\scar\startconditions\archon_nomad_start.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\startconditions\archon_nomad_start.scar" LastActivationTimeStamp="05/22/2023 20:48:04" />
-        <LayoutDocument Title="dev.scar" ContentId="FileName|Script|assets\scar\util\dev.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\dev.scar" LastActivationTimeStamp="05/22/2023 21:16:14" />
+        <LayoutDocument Title="fastproduct.scar" ContentId="FileName|Script|assets\scar\util\fastproduct.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\fastproduct.scar" LastActivationTimeStamp="05/26/2023 16:26:13" />
+        <LayoutDocument Title="archon.rdo" ContentId="Reflect|Essence.Editor.ReflectEditor.Controls.DefaultReflectControlActivator|0x4F87B1BD6762A585" LastActivationTimeStamp="05/26/2023 16:26:09" />
+        <LayoutDocument Title="dev.scar" ContentId="FileName|Script|assets\scar\util\dev.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\dev.scar" LastActivationTimeStamp="05/26/2023 16:26:12" />
+        <LayoutDocument Title="squad_type_util.scar" ContentId="FileName|Script|assets\scar\util\squad_type_util.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\squad_type_util.scar" LastActivationTimeStamp="05/26/2023 16:24:21" />
+        <LayoutDocument Title="Render" ContentId="EssenceEditor.Render" LastActivationTimeStamp="05/24/2023 21:36:54" />
+        <LayoutDocument Title="archon.scar" ContentId="FileName|Script|assets\scar\winconditions\archon.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\winconditions\archon.scar" LastActivationTimeStamp="05/26/2023 16:24:22" />
+        <LayoutDocument Title="role.scar" ContentId="FileName|Script|assets\scar\gameplay\role.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\role.scar" LastActivationTimeStamp="05/26/2023 16:02:44" />
+        <LayoutDocument Title="archon_ui.scar" ContentId="FileName|Script|assets\scar\gameplay\archon_ui.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\archon_ui.scar" LastActivationTimeStamp="05/23/2023 18:27:08" />
+        <LayoutDocument Title="entity_convert.scar" ContentId="FileName|Script|assets\scar\gameplay\entity_convert.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\entity_convert.scar" LastActivationTimeStamp="05/23/2023 20:05:48" />
+        <LayoutDocument Title="util.scar" ContentId="FileName|Script|assets\scar\util\util.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\util\util.scar" LastActivationTimeStamp="05/23/2023 18:28:43" />
+        <LayoutDocument Title="archon.locdb" IsSelected="True" IsLastFocusedDocument="True" ContentId="FileName|LocDB|assets\locdb\archon.locdb" ToolTip="F:\heartmove\Documents\archon\assets\locdb\archon.locdb" LastActivationTimeStamp="05/26/2023 19:34:07" />
+        <LayoutDocument Title="archon_conquest.scar" ContentId="FileName|Script|assets\scar\winconditions\archon_conquest.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\winconditions\archon_conquest.scar" LastActivationTimeStamp="05/24/2023 18:12:52" />
+        <LayoutDocument Title="archon_annihilation.scar" ContentId="FileName|Script|assets\scar\winconditions\archon_annihilation.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\winconditions\archon_annihilation.scar" LastActivationTimeStamp="05/24/2023 18:24:47" />
+        <LayoutDocument Title="archon_diplomacy.scar" ContentId="FileName|Script|assets\scar\gameplay\archon_diplomacy.scar" ToolTip="F:\heartmove\Documents\archon\assets\scar\gameplay\archon_diplomacy.scar" LastActivationTimeStamp="05/24/2023 18:24:56" />
       </LayoutDocumentPane>
       <LayoutAnchorablePane Id="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" Name="anchorablesPane" DockHeight="272.8">
-        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Output" ContentId="Output" LastActivationTimeStamp="05/19/2023 22:20:35" />
-        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Error List" ContentId="ErrorList" LastActivationTimeStamp="05/20/2023 00:47:32" />
+        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Output" IsSelected="True" ContentId="Output" LastActivationTimeStamp="05/26/2023 17:01:43" />
+        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Error List" ContentId="ErrorList" LastActivationTimeStamp="05/23/2023 18:26:56" />
         <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Object Browser" ContentId="ScenarioEditor.ObjectBrowser" LastActivationTimeStamp="05/19/2023 21:34:34" />
-        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Blueprint List" ContentId="ScenarioEditor.AssetBlueprint" LastActivationTimeStamp="05/17/2023 22:14:01" />
-        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Find 'human'" IsSelected="True" ContentId="FindResults" LastActivationTimeStamp="05/22/2023 21:31:42" />
+        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Blueprint List" ContentId="ScenarioEditor.AssetBlueprint" LastActivationTimeStamp="05/23/2023 18:01:32" />
+        <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Find Results 1" ContentId="FindResults" LastActivationTimeStamp="05/23/2023 18:26:07" />
       </LayoutAnchorablePane>
     </LayoutPanel>
     <LayoutAnchorablePaneGroup Orientation="Vertical" DockWidth="326.4" DockHeight="200">
@@ -46,10 +49,10 @@
   <BottomSide />
   <FloatingWindows />
   <Hidden>
-    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Transformation" IsSelected="True" ContentId="ScenarioEditor.Transformation" FloatingLeft="200" FloatingTop="200" FloatingWidth="250" FloatingHeight="300" LastActivationTimeStamp="05/22/2023 20:18:46" PreviousContainerId="78c06263-eb86-40c1-8abf-6d89a3781df0" PreviousContainerIndex="0" />
-    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Painter" IsSelected="True" ContentId="ScenarioEditor.Painter" FloatingLeft="200" FloatingTop="200" FloatingWidth="300" FloatingHeight="800" LastActivationTimeStamp="05/22/2023 20:18:46" PreviousContainerId="f6aa6b94-4446-44ad-b2d9-6b2205a00ba1" PreviousContainerIndex="1" />
-    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Globals" IsSelected="True" ContentId="Globals" LastActivationTimeStamp="05/22/2023 20:18:46" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="6" />
-    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Locals" IsSelected="True" ContentId="Locals" LastActivationTimeStamp="05/22/2023 20:18:46" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="6" />
-    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Call Stack" IsSelected="True" ContentId="CallStack" LastActivationTimeStamp="05/22/2023 20:18:46" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="3" />
+    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Transformation" IsSelected="True" ContentId="ScenarioEditor.Transformation" FloatingLeft="200" FloatingTop="200" FloatingWidth="250" FloatingHeight="300" LastActivationTimeStamp="05/26/2023 16:02:44" PreviousContainerId="78c06263-eb86-40c1-8abf-6d89a3781df0" PreviousContainerIndex="0" />
+    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Painter" IsSelected="True" ContentId="ScenarioEditor.Painter" FloatingLeft="200" FloatingTop="200" FloatingWidth="300" FloatingHeight="800" LastActivationTimeStamp="05/26/2023 16:02:44" PreviousContainerId="f6aa6b94-4446-44ad-b2d9-6b2205a00ba1" PreviousContainerIndex="1" />
+    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Globals" IsSelected="True" ContentId="Globals" LastActivationTimeStamp="05/26/2023 16:02:44" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="6" />
+    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Locals" IsSelected="True" ContentId="Locals" LastActivationTimeStamp="05/26/2023 16:02:44" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="6" />
+    <LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Call Stack" IsSelected="True" ContentId="CallStack" LastActivationTimeStamp="05/26/2023 16:02:44" PreviousContainerId="1b84d0aa-3fd1-4781-909d-fa3e4b760d6d" PreviousContainerIndex="3" />
   </Hidden>
 </LayoutRoot>

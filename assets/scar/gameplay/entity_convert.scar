@@ -157,6 +157,7 @@ function EntityExchange_ChangeEntityNtw(playerID, data)
 	end
 	local eg = EGroup_CreateIfNotFound("test3changeentity"..playerID.PlayerID)
 	EGroup_Clear(eg)
+	local ottMiliratySchoolCount = 0
 	local ownerId = nil
 	for i,eid in pairs(chunks) do 
 		local entity = Entity_FromID(eid)
@@ -164,12 +165,27 @@ function EntityExchange_ChangeEntityNtw(playerID, data)
 			ownerId = Entity_GetPlayerOwner(entity)
 		end
 		EGroup_Add(eg, entity)
+
+		if Entity_IsOfType(entity, "military_school_ott") then 
+			ottMiliratySchoolCount = ottMiliratySchoolCount + 1
+		end
+
 	end
 	if ownerId == nil then 
 		return
 	end
 	local teammate = Archon_GetMyTeammate(ownerId)
 	EGroup_SetPlayerOwner(eg, teammate.id)
+	
+	if ottMiliratySchoolCount > 0 then 
+		if teammate.role == ROLE_GENERAL then 
+			local count = Player_GetStateModelInt(ownerId, "military_school_limit_ott")
+			Player_SetStateModelInt(ownerId, "military_school_limit_ott", count - ottMiliratySchoolCount)
+		else 
+			local count = Player_GetStateModelInt(teammate.id, "military_school_limit_ott")
+			Player_SetStateModelInt(teammate.id, "military_school_limit_ott", count + ottMiliratySchoolCount)
+		end
+	end
 end
 
 function EntityExchange_ChangeSquadNtw(playerID, data)
@@ -179,6 +195,7 @@ function EntityExchange_ChangeSquadNtw(playerID, data)
 	end
 	local sg = SGroup_CreateIfNotFound("test2changeentity"..playerID.PlayerID)
 	SGroup_Clear(sg)
+	local ottMiliratySchoolCount = 0
 	local ownerId = nil
 	for i,sid in pairs(chunks) do 
 		local squad = Squad_FromID(sid)
@@ -186,12 +203,22 @@ function EntityExchange_ChangeSquadNtw(playerID, data)
 			ownerId = Squad_GetPlayerOwner(squad)
 		end
 		SGroup_Add(sg, squad)
+		if Squad_IsOfType(squad, "military_school_ott") then 
+			ottMiliratySchoolCount = ottMiliratySchoolCount + 1
+		end
 	end
 	if ownerId == nil then 
 		return
 	end
 	local teammate = Archon_GetMyTeammate(ownerId)
 	SGroup_SetPlayerOwner(sg, teammate.id)
+	--[[if ottMiliratySchoolCount > 0 then
+		if teammate.role == ROLE_GENERAL then 
+			local count = Player_GetStateModelInt(ownerId, "military_school_limit_ott")
+			Player_SetStateModelInt(ownerId, "military_school_limit_ott", count - ottMiliratySchoolCount)
+		end
+	end
+	--]]
 end
 
 
@@ -232,3 +259,61 @@ function EntityExchange_ChangeEntity()
 	end
 	EGroup_Clear(eg)
 end
+
+
+--[[
+function Archon_SelectEntity()
+	local sg = SGroup_CreateIfNotFound("testxxvcxv")
+	Misc_GetSelectedSquads(sg, false)
+	local count = SGroup_Count(sg)
+	local flag = false 
+	if count > 0 then
+		
+		local squad = SGroup_GetSquadAt(sg, 1)
+		if World_OwnsSquad(squad) then 
+			return 
+		end
+		local owner = Squad_GetPlayerOwner(squad)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		if owner ~= localPlayer.id and rel == R_ALLY then
+			for i = count, 1 do 
+				local s = SGroup_GetSquadAt(sg, i)
+				if Squad_IsOfType(s, "villager") or World_OwnsSquad(s) or Squad_IsOfType(s, "leader")  then 
+					SGroup_Remove(sg, s)
+				end
+			end
+			SGroup_SetPlayerOwner(sg, localPlayer.id)
+		end 
+		return
+		SGroup_Clear(sg)
+	end
+
+	
+	-- Archon_ChangeEntityOwner()
+end
+
+function Archon_ChangeEntityOwner()
+	local eg = EGroup_CreateIfNotFound("test1xxvcxv")
+	Misc_GetSelectedEntities(eg, false)
+	local count = EGroup_Count(eg)
+	local flag = false 
+	if count > 0 then
+		local entity = EGroup_GetEntityAt(eg, 1)
+		if World_OwnsEntity(entity) then 
+			return 
+		end
+		local owner = Entity_GetPlayerOwner(entity)
+		local rel = Player_ObserveRelationship(localPlayer.id, owner)
+		if owner ~= localPlayer.id and rel == R_ALLY then
+			for i = count, 1 do 
+				local e = EGroup_GetEntityAt(eg, i)
+				if Entity_IsOfType(e, "landmark") or Entity_IsOfType(e, "wonder") or Entity_IsOfType(e, "resource_drop_off")  or World_OwnsEntity(e) then 
+					EGroup_Remove(eg, e)
+				end
+			end
+			EGroup_SetPlayerOwner(eg, localPlayer.id)
+		end 	
+	end
+	EGroup_Clear(eg)
+end
+--]]
